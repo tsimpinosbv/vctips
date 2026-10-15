@@ -39,14 +39,29 @@ const TABS = [["setup","Στήσιμο"],["tips","Tips"],["venues","Γήπεδα
 let db=null, me=null, isAdmin=false, edit=false;
 let steps=[], tips=[], venues=[], ready={steps:false,tips:false,venues:false};
 let tab = (location.hash||"").slice(1); if(!TABS.some(t=>t[0]===tab)) tab = "setup";
-let tipCat = "Όλα", venueId = null, filter = "", sheet = null;
+let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;   // zoom: {src, alt} of the photo shown full screen
 try{ venueId = localStorage.getItem("vct-venue"); }catch{}
 
 /* the official VideoCheck layout (img/videocheck-layout.jpg); tap opens it full size for zooming */
+const LAYOUT = "img/videocheck-layout.jpg";
+const LAYOUT_ALT = "Διάταξη VideoCheck: κάμερες γραμμών 1–8, C, D, κάμερες block Y, T, R, L, K, J, κάμερες φιλέ A, B, E, W, κάμερες U, I, κάμερα σκηνής S, Server 1, Server 2 και Server Main με UPS και πρίζα σούκο";
+/* step 1 shows its picture large; tap opens it full screen */
 function diagram(){
-  return `<a class="g-layout" href="img/videocheck-layout.jpg" target="_blank" rel="noopener" title="Άνοιγμα σε πλήρες μέγεθος">
-    <img src="img/videocheck-layout.jpg" width="1386" height="916" alt="Διάταξη VideoCheck: κάμερες γραμμών 1–8, C, D, κάμερες block Y, T, R, L, K, J, κάμερες φιλέ A, B, E, W, κάμερες U, I, κάμερα σκηνής S, Server 1, Server 2 και Server Main με UPS και πρίζα σούκο">
-    <span>Πάτα για μεγέθυνση</span></a>`;
+  return `<button class="g-layout" data-act="zoom" data-k="steps" data-i="0" aria-label="Μεγέθυνση της διάταξης">
+    <img src="${LAYOUT}" width="1386" height="916" alt="${esc(LAYOUT_ALT)}"><span>Πάτα για μεγέθυνση</span></button>`;
+}
+/* every other photo is a small thumbnail that opens full screen */
+const imgOf = it => it.img || (it.diagram ? LAYOUT : "");
+function thumb(it, k, i){
+  const src = imgOf(it); if(!src) return "";
+  return `<button class="g-thumb" data-act="zoom" data-k="${k}" data-i="${i}" aria-label="Μεγέθυνση φωτογραφίας: ${esc(it.title||"")}"><img src="${src}" alt="" loading="lazy"></button>`;
+}
+function viewZoom(){
+  if(!zoom) return "";
+  return `<div class="g-zoom" role="dialog" aria-modal="true" aria-label="${esc(zoom.alt)}" data-act="unzoom">
+    <button class="g-zoom-x" data-act="unzoom">Κλείσιμο ✕</button>
+    <div class="g-zoom-in"><img src="${zoom.src}" alt="${esc(zoom.alt)}" data-act="zoomfull"></div>
+    <p class="g-zoom-hint">Πάτα την εικόνα για πλήρες μέγεθος</p></div>`;
 }
 
 /* V.C. Tips venues (own list, collection vct_venues): code (acronym), name, city, address, map (Google Maps link or "lat,lng"), notes */
@@ -75,8 +90,8 @@ function viewSetup(){
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τον εξοπλισμό ως τη δοκιμαστική λήψη.</p>
   <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step">
-    ${s.img?`<div class="g-media"><img src="${s.img}" alt="${esc(s.title)}" loading="lazy"></div>`:s.diagram?`<div class="g-media layout">${diagram()}</div>`:""}
-    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2><p class="g-txt">${esc(s.text)}</p>${tools("steps",i,n)}</div></article>`).join("") : empty}
+    ${i===0 ? (s.img?`<div class="g-media"><button class="g-layout" data-act="zoom" data-k="steps" data-i="0" aria-label="Μεγέθυνση φωτογραφίας"><img src="${s.img}" alt="${esc(s.title)}" loading="lazy"><span>Πάτα για μεγέθυνση</span></button></div>`:s.diagram?`<div class="g-media layout">${diagram()}</div>`:"") : ""}
+    <div class="g-body"><div class="g-head"><div><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2></div>${i>0?thumb(s,"steps",i):""}</div><p class="g-txt">${esc(s.text)}</p>${tools("steps",i,n)}</div></article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
@@ -91,8 +106,7 @@ function viewTips(){
     : emptyBox("Κανένα tip σε αυτή την κατηγορία", "");
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
-  <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3>
-    ${t.img?`<img src="${t.img}" alt="${esc(t.title)}" loading="lazy">`:""}<p class="g-txt">${esc(t.text)}</p>${tools("tips",i,tips.length)}</article>`).join("") : empty}
+  <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<div class="g-head"><h3>${esc(t.title)}</h3>${thumb(t,"tips",i)}</div><p class="g-txt">${esc(t.text)}</p>${tools("tips",i,tips.length)}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
 }
 
@@ -155,7 +169,7 @@ function render(){
 </div></header>
     <main class="g-main g-wrap">${tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues()}</main>
     <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k?'aria-current="page"':""}>${ICON[k]}${l}</a>`).join("")}</div></nav>
-    ${viewSheet()}`;
+    ${viewSheet()}${viewZoom()}`;
   window.scrollTo(0, sy);
   if(gq!==null){ const q=$("gq"); if(q){ q.focus(); try{ q.setSelectionRange(gq,gq); }catch{} } }
 }
@@ -177,6 +191,9 @@ async function onClick(ev){
     case "tab": ev.preventDefault(); tab=el.dataset.t; history.replaceState(null,"",location.pathname+"#"+tab); render(); window.scrollTo(0,0); break;
     case "toggle": edit=!edit; render(); break;
     case "cat": tipCat=el.dataset.c; render(); break;
+    case "zoom": { const it=LIST(k)[i]; const src = it ? imgOf(it) : LAYOUT; zoom={src: src||LAYOUT, alt: (it&&it.diagram&&!it.img) ? LAYOUT_ALT : (it&&it.title)||""}; render(); break; }
+    case "zoomfull": el.closest(".g-zoom-in").classList.toggle("full"); break;
+    case "unzoom": if(ev.target===el || ev.target.classList.contains("g-zoom-in") || el.classList.contains("g-zoom-x")){ zoom=null; render(); } break;
     case "pick": pickVenue(el.dataset.id); window.scrollTo({top:0,behavior:"smooth"}); break;
     case "copy": { const v=venues.find(x=>x.id===venueId); const txt=v.address||v.name; try{ await navigator.clipboard.writeText(txt); toast("Η διεύθυνση αντιγράφηκε"); }catch{ toast(txt); } break; }
     case "up": case "down": { const arr=LIST(k), j=a==="up"?i-1:i+1; if(j<0||j>=arr.length) break;
@@ -254,6 +271,7 @@ async function onClick(ev){
     else if(t.id==="gf-img" && t.files[0]){ readSheet(); try{ sheet.item.img = await resizeImage(t.files[0]); sheet.item.diagram=false; }catch{ toast("Δεν άνοιξε η εικόνα. Δοκίμασε JPG ή PNG."); } render(); }
   });
   g.addEventListener("input", ev => { if(ev.target.id==="gq"){ filter=ev.target.value; render(); } });
+  addEventListener("keydown", e => { if(e.key==="Escape" && zoom){ zoom=null; render(); } });
   addEventListener("hashchange", () => { const h=location.hash.slice(1); if(TABS.some(x=>x[0]===h) && h!==tab){ tab=h; render(); } });
   render();
   const byOrder = s => s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??1e9)-(b.order??1e9));
