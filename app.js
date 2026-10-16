@@ -103,9 +103,12 @@ function tools(kind, i, len){
 const deniedBox = () => emptyBox("Δεν υπάρχει πρόσβαση στο περιεχόμενο",
   `Ο λογαριασμός ${esc(me&&me.email||"")} δεν έχει δικαίωμα ανάγνωσης. ${isAdmin?"Πρόσθεσε τις τρεις γραμμές για τα vct_steps, vct_tips και vct_venues στους κανόνες του Firebase (βλ. README).":"Μίλησε με τον διαχειριστή."}`);
 /* Text formatting for steps, tips and venue notes: a small, safe markup (the text is escaped first, then only these marks become HTML).
-   **bold**  *italic*  ==highlight==  !!red!!  lines "- " or "• " = bullets, "1. " = numbered, "## " = subheading, https:// links clickable */
+   **bold**  *italic*  ==highlight==  !!red!!  {πορτοκαλί:text} coloured label  lines "- " or "• " = bullets, "1. " = numbered, "## " = subheading, https:// links clickable */
+/* colour tags, e.g. {πορτοκαλί:Y, T, R} → a coloured label, matching the camera colours of the layout */
+const COLORS = {"μαύρο":"black","πορτοκαλί":"orange","κίτρινο":"yellow","μπλε":"blue","κόκκινο":"red","πράσινο":"green"};
 function fmtInline(t){
   return t
+    .replace(/\{(μαύρο|πορτοκαλί|κίτρινο|μπλε|κόκκινο|πράσινο):([^{}]+?)\}/g, (m,c,x)=>`<span class="g-chipc ${COLORS[c]}">${x}</span>`)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, "$1<em>$2</em>")
     .replace(/==(.+?)==/g, "<mark>$1</mark>")
@@ -129,12 +132,12 @@ function fmt(text){
 /* toolbar above a text box: wraps the selection, or prefixes the selected lines */
 function fmtBar(k){
   const b = (act, label, title) => `<button type="button" class="g-fb" data-act="fmt" data-f="${act}" data-t="${k}" title="${title}" aria-label="${title}">${label}</button>`;
-  return `<div class="g-fbar" role="toolbar" aria-label="Μορφοποίηση">${b("b","<b>B</b>","Έντονα")}${b("i","<i>I</i>","Πλάγια")}${b("mark",'<mark>A</mark>',"Επισήμανση")}${b("red",'<span class="g-red">A</span>',"Κόκκινα")}${b("ul","•","Κουκκίδες")}${b("ol","1.","Αρίθμηση")}${b("h","Τ","Υπότιτλος")}</div>`;
+  return `<div class="g-fbar" role="toolbar" aria-label="Μορφοποίηση">${b("b","<b>B</b>","Έντονα")}${b("i","<i>I</i>","Πλάγια")}${b("mark",'<mark>A</mark>',"Επισήμανση")}${b("red",'<span class="g-red">A</span>',"Κόκκινα")}<span class="g-fsep"></span>${Object.entries(COLORS).map(([gr,en])=>b("c:"+gr,`<span class="g-sw ${en}"></span>`,"Ετικέτα: "+gr)).join("")}<span class="g-fsep"></span>${b("ul","•","Κουκκίδες")}${b("ol","1.","Αρίθμηση")}${b("h","Τ","Υπότιτλος")}</div>`;
 }
 function applyFmt(f, id){
   const ta = $("gf-"+id); if(!ta) return;
   const v = ta.value, a = ta.selectionStart, z = ta.selectionEnd, sel = v.slice(a,z);
-  const wrap = {b:["**","**"], i:["*","*"], mark:["==","=="], red:["!!","!!"]}[f];
+  const wrap = f.startsWith("c:") ? ["{"+f.slice(2)+":","}"] : {b:["**","**"], i:["*","*"], mark:["==","=="], red:["!!","!!"]}[f];
   let nv, na, nz;
   if(wrap){
     const inner = sel || "κείμενο";
@@ -262,7 +265,7 @@ function viewSheet(){
             <p class="g-lede" style="margin:0;font-size:13px">Αν το κινητό σου δεν αφήνει να διαλέξεις πολλές μαζί, πρόσθεσέ τες μία-μία.</p>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
       : `<div class="g-field"><label for="gf-${k}">${l}</label>${t==="textarea"?`${fmtBar(k)}<textarea class="g-in" id="gf-${k}">${esc(it[k])}</textarea>
           <details class="g-fmthelp"><summary>Προεπισκόπηση και οδηγίες μορφοποίησης</summary><div class="g-rich g-prev" id="gp-${k}">${fmt(it[k])}</div>
-          <p>**έντονα** · *πλάγια* · ==επισήμανση== · !!κόκκινα!! · γραμμή που αρχίζει με «- » = κουκκίδα, «1. » = αρίθμηση, «## » = υπότιτλος. Οι σύνδεσμοι (https://…) γίνονται αυτόματα κλικ.</p></details>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
+          <p>**έντονα** · *πλάγια* · ==επισήμανση== · !!κόκκινα!! · {πορτοκαλί:Y, T, R} = χρωματιστή ετικέτα (μαύρο, πορτοκαλί, κίτρινο, μπλε, κόκκινο, πράσινο) · γραμμή που αρχίζει με «- » = κουκκίδα, «1. » = αρίθμηση, «## » = υπότιτλος. Οι σύνδεσμοι (https://…) γίνονται αυτόματα κλικ.</p></details>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
     <div class="g-row"><button class="g-btn" data-act="saveitem">Αποθήκευση</button><button class="g-btn ghost" data-act="close">Άκυρο</button></div></div></div>`;
 }
 
