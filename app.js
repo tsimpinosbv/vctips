@@ -102,6 +102,54 @@ function tools(kind, i, len){
 /* shown instead of "nothing yet" when the database refused to read (rules not set, or not a Check Mate account) */
 const deniedBox = () => emptyBox("Δεν υπάρχει πρόσβαση στο περιεχόμενο",
   `Ο λογαριασμός ${esc(me&&me.email||"")} δεν έχει δικαίωμα ανάγνωσης. ${isAdmin?"Πρόσθεσε τις τρεις γραμμές για τα vct_steps, vct_tips και vct_venues στους κανόνες του Firebase (βλ. README).":"Μίλησε με τον διαχειριστή."}`);
+/* Text formatting for steps, tips and venue notes: a small, safe markup (the text is escaped first, then only these marks become HTML).
+   **bold**  *italic*  ==highlight==  !!red!!  lines "- " or "• " = bullets, "1. " = numbered, "## " = subheading, https:// links clickable */
+function fmtInline(t){
+  return t
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/==(.+?)==/g, "<mark>$1</mark>")
+    .replace(/!!(.+?)!!/g, '<span class="g-red">$1</span>')
+    .replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)»])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+function fmt(text){
+  const lines = esc(text||"").split("\n"); let out="", list=null, para=[];
+  const flushPara = () => { if(para.length){ out += `<p>${para.map(fmtInline).join("<br>")}</p>`; para=[]; } };
+  const flushList = () => { if(list){ out += `<${list.tag}>${list.items.map(x=>`<li>${fmtInline(x)}</li>`).join("")}</${list.tag}>`; list=null; } };
+  for(const raw of lines){
+    const ln = raw.trimEnd(); let m;
+    if((m = ln.match(/^\s*(?:[-•·]|\*(?!\*))\s+(.*)$/))){ flushPara(); if(!list||list.tag!=="ul"){ flushList(); list={tag:"ul",items:[]}; } list.items.push(m[1]); }
+    else if((m = ln.match(/^\s*\d+[.)]\s+(.*)$/))){ flushPara(); if(!list||list.tag!=="ol"){ flushList(); list={tag:"ol",items:[]}; } list.items.push(m[1]); }
+    else if((m = ln.match(/^##\s+(.*)$/))){ flushPara(); flushList(); out += `<h4>${fmtInline(m[1])}</h4>`; }
+    else if(!ln.trim()){ flushPara(); flushList(); }
+    else { flushList(); para.push(ln); }
+  }
+  flushPara(); flushList(); return out;
+}
+/* toolbar above a text box: wraps the selection, or prefixes the selected lines */
+function fmtBar(k){
+  const b = (act, label, title) => `<button type="button" class="g-fb" data-act="fmt" data-f="${act}" data-t="${k}" title="${title}" aria-label="${title}">${label}</button>`;
+  return `<div class="g-fbar" role="toolbar" aria-label="Μορφοποίηση">${b("b","<b>B</b>","Έντονα")}${b("i","<i>I</i>","Πλάγια")}${b("mark",'<mark>A</mark>',"Επισήμανση")}${b("red",'<span class="g-red">A</span>',"Κόκκινα")}${b("ul","•","Κουκκίδες")}${b("ol","1.","Αρίθμηση")}${b("h","Τ","Υπότιτλος")}</div>`;
+}
+function applyFmt(f, id){
+  const ta = $("gf-"+id); if(!ta) return;
+  const v = ta.value, a = ta.selectionStart, z = ta.selectionEnd, sel = v.slice(a,z);
+  const wrap = {b:["**","**"], i:["*","*"], mark:["==","=="], red:["!!","!!"]}[f];
+  let nv, na, nz;
+  if(wrap){
+    const inner = sel || "κείμενο";
+    nv = v.slice(0,a) + wrap[0] + inner + wrap[1] + v.slice(z); na = a + wrap[0].length; nz = na + inner.length;
+  } else {
+    const ls = v.lastIndexOf("\n", a-1) + 1, le = z > a && v[z-1]==="\n" ? z-1 : (v.indexOf("\n", z) < 0 ? v.length : v.indexOf("\n", z));
+    const block = v.slice(ls, le).split("\n").map((l,n) => {
+      const bare = l.replace(/^\s*(?:[-•·]\s+|\d+[.)]\s+|##\s+)/, "");
+      return f==="ul" ? "- "+bare : f==="ol" ? `${n+1}. `+bare : "## "+bare; }).join("\n");
+    nv = v.slice(0,ls) + block + v.slice(le); na = ls; nz = ls + block.length;
+  }
+  ta.value = nv; ta.focus(); ta.setSelectionRange(na, nz);
+  const pv = $("gp-"+id); if(pv) pv.innerHTML = fmt(nv);
+}
+
 function emptyBox(title, sub, extra=""){ return `<div class="g-empty"><strong>${title}</strong><div>${sub}</div>${extra}</div>`; }
 
 function viewSetup(){
@@ -113,7 +161,7 @@ function viewSetup(){
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
   <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step">
     ${i===0 ? bigPhoto(s,"steps",0) : ""}
-    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2><p class="g-txt">${esc(s.text)}</p>${thumbs(s,"steps",i,i===0?1:0)}${tools("steps",i,n)}</div></article>`).join("") : empty}
+    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,i===0?1:0)}${tools("steps",i,n)}</div></article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
@@ -153,7 +201,7 @@ function viewTips(){
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
   ${edit?viewCats():""}
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
-  <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3><p class="g-txt">${esc(t.text)}</p>${thumbs(t,"tips",i)}${tools("tips",i,tips.length)}</article>`).join("") : empty}
+  <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3><div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i)}${tools("tips",i,tips.length)}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
 }
 
@@ -174,7 +222,7 @@ function viewVenues(){
       ${shown.map(v=>`<option value="${v.id}" ${v.id===venueId?"selected":""}>${v.code?esc(v.code)+" — ":""}${esc(v.name)}</option>`).join("")}</select></div>
   </div>`:""}
   ${cur?`<article class="g-court"><div class="hd">${cur.code && norm(cur.code)!==norm(cur.name)?`<span class="g-code">${esc(cur.code)}</span>`:""}<div><h2>${esc(cur.name)}</h2>${cur.city?`<p>${esc(cur.city)}</p>`:""}</div></div>
-    <div class="bd">${cur.address||cur.notes?`<dl class="g-kv">${cur.address?`<dt>Διεύθυνση</dt><dd>${esc(cur.address)}</dd>`:""}${cur.notes?`<dt>Σημειώσεις</dt><dd class="g-txt">${esc(cur.notes)}</dd>`:""}</dl>`:""}
+    <div class="bd">${cur.address||cur.notes?`<dl class="g-kv">${cur.address?`<dt>Διεύθυνση</dt><dd>${esc(cur.address)}</dd>`:""}${cur.notes?`<dt>Σημειώσεις</dt><dd class="g-rich">${fmt(cur.notes)}</dd>`:""}</dl>`:""}
     <div class="g-row"><a class="g-btn" href="${esc(mapsUrl(cur))}" target="_blank" rel="noopener">${ICON.venues} Οδηγίες Google Maps</a>${cur.address?`<button class="g-btn ghost" data-act="copy">Αντιγραφή διεύθυνσης</button>`:""}</div>
     ${tools("venues",ci,venues.length)}</div></article>`
    : venues.length ? emptyBox("Επίλεξε γήπεδο από τη λίστα","") : denied.venues ? deniedBox() : emptyAll}
@@ -208,7 +256,9 @@ function viewSheet(){
             <div class="phb">${n>0?`<button class="g-tb" type="button" data-act="phmove" data-n="${n}" data-d="-1" aria-label="Μετακίνηση αριστερά">‹</button>`:""}<button class="g-tb del" type="button" data-act="phdel" data-n="${n}" aria-label="Αφαίρεση φωτογραφίας">✕</button></div></div>`).join("")}</div>`:""}
           ${sheet.photos.filter(p=>!p.diagram).length<MAXPH?`<label class="g-addph"><input type="file" id="gf-${k}" accept="image/*" multiple>${sheet.photos.filter(p=>!p.diagram).length?`+ Προσθήκη κι άλλης φωτογραφίας (${sheet.photos.filter(p=>!p.diagram).length}/${MAXPH})`:"+ Προσθήκη φωτογραφιών"}</label>
             <p class="g-lede" style="margin:0;font-size:13px">Αν το κινητό σου δεν αφήνει να διαλέξεις πολλές μαζί, πρόσθεσέ τες μία-μία.</p>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
-      : `<div class="g-field"><label for="gf-${k}">${l}</label>${t==="textarea"?`<textarea class="g-in" id="gf-${k}">${esc(it[k])}</textarea>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
+      : `<div class="g-field"><label for="gf-${k}">${l}</label>${t==="textarea"?`${fmtBar(k)}<textarea class="g-in" id="gf-${k}">${esc(it[k])}</textarea>
+          <details class="g-fmthelp"><summary>Προεπισκόπηση και οδηγίες μορφοποίησης</summary><div class="g-rich g-prev" id="gp-${k}">${fmt(it[k])}</div>
+          <p>**έντονα** · *πλάγια* · ==επισήμανση== · !!κόκκινα!! · γραμμή που αρχίζει με «- » = κουκκίδα, «1. » = αρίθμηση, «## » = υπότιτλος. Οι σύνδεσμοι (https://…) γίνονται αυτόματα κλικ.</p></details>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
     <div class="g-row"><button class="g-btn" data-act="saveitem">Αποθήκευση</button><button class="g-btn ghost" data-act="close">Άκυρο</button></div></div></div>`;
 }
 
@@ -245,6 +295,7 @@ async function onClick(ev){
     case "tab": ev.preventDefault(); tab=el.dataset.t; history.replaceState(null,"",location.pathname+"#"+tab); render(); window.scrollTo(0,0); break;
     case "toggle": edit=!edit; render(); break;
     case "cat": tipCat=el.dataset.c; render(); break;
+    case "fmt": applyFmt(el.dataset.f, el.dataset.t); break;
     case "catren": { const from=tipCats()[+el.dataset.n], to=($("gcat-"+el.dataset.n).value||"").trim();
       if(!to){ toast("Γράψε όνομα, ή πάτα Αφαίρεση"); break; } if(to===from) break;
       try{ await renameCat(from, to); toast("Η κατηγορία μετονομάστηκε"); }catch{ fail(); } break; }
@@ -355,7 +406,8 @@ async function onClick(ev){
       render();
     }
   });
-  g.addEventListener("input", ev => { if(ev.target.id==="gq"){ filter=ev.target.value; render(); } });
+  g.addEventListener("input", ev => { if(ev.target.id==="gq"){ filter=ev.target.value; render(); }
+    else if(/^gf-(text|notes)$/.test(ev.target.id)){ const pv=$("gp-"+ev.target.id.slice(3)); if(pv) pv.innerHTML=fmt(ev.target.value); } });
   addEventListener("keydown", e => { if(!zoom) return; if(e.key==="Escape"){ zoom=null; render(); } else if(e.key==="ArrowRight") zoomStep(1); else if(e.key==="ArrowLeft") zoomStep(-1); });
   /* swipe left/right in the full-screen viewer (not while viewing at actual size) */
   let sx=null, sy0=null;

@@ -70,6 +70,20 @@ main.g-main{padding-bottom:calc(var(--tabh) + 70px + env(safe-area-inset-bottom,
 .g-num{font-family:var(--f-mono);font-size:13px;color:var(--accent)}
 .g-step h2,.g-tip h3{font-family:var(--f-display);font-weight:800;font-size:22px;line-height:1.15;margin:0;text-wrap:balance}
 .g-txt{white-space:pre-line;margin:0;overflow-wrap:anywhere}
+.g-rich{overflow-wrap:anywhere;display:grid;gap:8px}
+.g-rich p,.g-rich ul,.g-rich ol,.g-rich h4{margin:0}
+.g-rich ul,.g-rich ol{padding-left:22px;display:grid;gap:3px}
+.g-rich h4{font-family:var(--f-display);font-weight:800;font-size:17px;text-transform:uppercase;letter-spacing:.02em;margin-top:4px}
+.g-rich mark{background:#ffe27a;color:#14213a;padding:0 3px;border-radius:3px}
+.g-red{color:var(--bad);font-weight:600}
+.g-rich a{color:var(--blue)}
+.g-fbar{display:flex;flex-wrap:wrap;gap:6px}
+.g-fb{min-width:38px;height:34px;border:1px solid var(--line);background:var(--surface);border-radius:8px;font-size:15px;padding:0 8px;color:var(--ink)}
+.g-fb mark{background:#ffe27a;color:#14213a;padding:0 3px}
+.g-fmthelp{font-size:13px;color:var(--muted)}
+.g-fmthelp summary{cursor:pointer;font-weight:600;color:var(--blue)}
+.g-fmthelp p{margin:8px 0 0}
+.g-prev{margin-top:8px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;min-height:40px}
 .g-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;scrollbar-width:none}
 .g-chip{flex:none;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-weight:600;font-size:14px}
 .g-chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
