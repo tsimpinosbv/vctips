@@ -37,7 +37,7 @@ const ICON = {
 const TABS = [["setup","Στήσιμο"],["tips","Tips"],["venues","Γήπεδα"]];
 
 let db=null, me=null, isAdmin=false, edit=false;
-let steps=[], tips=[], venues=[], IMGS={steps:{}, tips:{}}, ready={steps:false,tips:false,venues:false};
+let steps=[], tips=[], venues=[], IMGS={steps:{}, tips:{}}, denied={}, ready={steps:false,tips:false,venues:false};
 let tab = (location.hash||"").slice(1); if(!TABS.some(t=>t[0]===tab)) tab = "setup";
 let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;   // zoom: {k, i, idx} — which item's photos are full screen, and which one
 try{ venueId = localStorage.getItem("vct-venue"); }catch{}
@@ -99,12 +99,15 @@ function tools(kind, i, len){
   return `<div class="g-tools"><button class="g-tb" data-act="edit" data-k="${kind}" data-i="${i}">✎ Επεξεργασία</button>${mv}
     <button class="g-tb del" data-act="del" data-k="${kind}" data-i="${i}">Διαγραφή</button></div>`;
 }
+/* shown instead of "nothing yet" when the database refused to read (rules not set, or not a Check Mate account) */
+const deniedBox = () => emptyBox("Δεν υπάρχει πρόσβαση στο περιεχόμενο",
+  `Ο λογαριασμός ${esc(me&&me.email||"")} δεν έχει δικαίωμα ανάγνωσης. ${isAdmin?"Πρόσθεσε τις τρεις γραμμές για τα vct_steps, vct_tips και vct_venues στους κανόνες του Firebase (βλ. README).":"Μίλησε με τον διαχειριστή."}`);
 function emptyBox(title, sub, extra=""){ return `<div class="g-empty"><strong>${title}</strong><div>${sub}</div>${extra}</div>`; }
 
 function viewSetup(){
   if(!ready.steps) return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Φόρτωση…</p>`;
   const n = steps.length;
-  const empty = isAdmin
+  const empty = denied.steps && !n ? deniedBox() : isAdmin
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
@@ -143,7 +146,7 @@ function viewTips(){
   const cats = ["Όλα", ...new Set(tips.map(t=>t.cat).filter(Boolean))];
   if(!cats.includes(tipCat)) tipCat = "Όλα";
   const list = tips.map((t,i)=>[t,i]).filter(([t])=>tipCat==="Όλα"||t.cat===tipCat);
-  const empty = !tips.length
+  const empty = denied.tips && !tips.length ? deniedBox() : !tips.length
     ? (isAdmin ? emptyBox("Δεν υπάρχουν tips ακόμα", "Πρόσθεσε το πρώτο ή φόρτωσε ένα αρχικό πρόχειρο.", `<button class="g-btn" data-act="seed" data-k="tips">Φόρτωση αρχικού προχείρου</button>`)
                : emptyBox("Δεν υπάρχουν tips ακόμα", "Θα προστεθούν σύντομα."))
     : emptyBox("Κανένα tip σε αυτή την κατηγορία", "");
@@ -174,7 +177,7 @@ function viewVenues(){
     <div class="bd">${cur.address||cur.notes?`<dl class="g-kv">${cur.address?`<dt>Διεύθυνση</dt><dd>${esc(cur.address)}</dd>`:""}${cur.notes?`<dt>Σημειώσεις</dt><dd class="g-txt">${esc(cur.notes)}</dd>`:""}</dl>`:""}
     <div class="g-row"><a class="g-btn" href="${esc(mapsUrl(cur))}" target="_blank" rel="noopener">${ICON.venues} Οδηγίες Google Maps</a>${cur.address?`<button class="g-btn ghost" data-act="copy">Αντιγραφή διεύθυνσης</button>`:""}</div>
     ${tools("venues",ci,venues.length)}</div></article>`
-   : venues.length ? emptyBox("Επίλεξε γήπεδο από τη λίστα","") : emptyAll}
+   : venues.length ? emptyBox("Επίλεξε γήπεδο από τη λίστα","") : denied.venues ? deniedBox() : emptyAll}
   ${venues.length?`<div class="g-mini">${shown.map(v=>`<button data-act="pick" data-id="${v.id}" aria-current="${v.id===venueId}"><span class="c ${v.code?"":"none"}">${esc(v.code||"—")}</span><span class="n">${esc(v.name)}</span></button>`).join("")}</div>`:""}
   ${edit?`<div class="g-list" style="margin-top:14px"><button class="g-add" data-act="new" data-k="venues">+ Νέο γήπεδο</button><button class="g-add" data-act="import">Εισαγωγή λίστας γηπέδων</button></div>`:""}`;
 }
@@ -215,7 +218,8 @@ function render(){
       <div class="g-brand"><div><b>V.C. <span>Tips</span></b><small>Οδηγός στησίματος</small></div></div><span class="g-sp"></span>
       ${isAdmin?`<button class="g-pill" data-act="toggle" aria-pressed="${edit}">${edit?"Τέλος":"✎ Επεξεργασία"}</button>`:""}
 </div></header>
-    <main class="g-main g-wrap">${tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues()}</main>
+    <main class="g-main g-wrap">${tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues()}
+      ${me&&me.email?`<p class="g-who">Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}</p>`:""}</main>
     <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k?'aria-current="page"':""}>${ICON[k]}${l}</a>`).join("")}</div></nav>
     ${viewSheet()}${viewZoom()}`;
   window.scrollTo(0, sy);
@@ -363,10 +367,10 @@ async function onClick(ev){
   /* photo documents ({imgOf}) live next to the items; split them out */
   const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });
     IMGS[k]=im; return items.sort((a,b)=>(a.order??1e9)-(b.order??1e9)); };
-  const denied = name => () => { ready[name]=true; render(); };
-  db.collection("vct_steps").onSnapshot(s=>{ steps=split("steps",s); ready.steps=true; render(); }, denied("steps"));
-  db.collection("vct_tips").onSnapshot(s=>{ tips=split("tips",s); ready.tips=true; render(); }, denied("tips"));
-  db.collection("vct_venues").limit(2000).onSnapshot(s=>{ venues=s.docs.map(d=>({id:d.id,...d.data()})); ready.venues=true; render(); }, denied("venues"));
+  const onDenied = name => err => { console.warn(name, err && err.code); denied[name]=true; ready[name]=true; render(); };
+  db.collection("vct_steps").onSnapshot(s=>{ steps=split("steps",s); ready.steps=true; render(); }, onDenied("steps"));
+  db.collection("vct_tips").onSnapshot(s=>{ tips=split("tips",s); ready.tips=true; render(); }, onDenied("tips"));
+  db.collection("vct_venues").limit(2000).onSnapshot(s=>{ venues=s.docs.map(d=>({id:d.id,...d.data()})); ready.venues=true; render(); }, onDenied("venues"));
 })();
 
   })();
