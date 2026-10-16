@@ -177,7 +177,8 @@ function viewSheet(){
       ? `<div class="g-field"><label for="gf-${k}">${l}</label>
           ${sheet.photos.length?`<div class="g-phedit">${sheet.photos.map((p,n)=>`<div class="ph"><img src="${p.src}" alt="">
             <div class="phb">${n>0?`<button class="g-tb" type="button" data-act="phmove" data-n="${n}" data-d="-1" aria-label="Μετακίνηση αριστερά">‹</button>`:""}<button class="g-tb del" type="button" data-act="phdel" data-n="${n}" aria-label="Αφαίρεση φωτογραφίας">✕</button></div></div>`).join("")}</div>`:""}
-          ${sheet.photos.filter(p=>!p.diagram).length<MAXPH?`<label class="g-addph"><input type="file" id="gf-${k}" accept="image/*" multiple>+ Προσθήκη φωτογραφιών</label>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
+          ${sheet.photos.filter(p=>!p.diagram).length<MAXPH?`<label class="g-addph"><input type="file" id="gf-${k}" accept="image/*" multiple>${sheet.photos.filter(p=>!p.diagram).length?`+ Προσθήκη κι άλλης φωτογραφίας (${sheet.photos.filter(p=>!p.diagram).length}/${MAXPH})`:"+ Προσθήκη φωτογραφιών"}</label>
+            <p class="g-lede" style="margin:0;font-size:13px">Αν το κινητό σου δεν αφήνει να διαλέξεις πολλές μαζί, πρόσθεσέ τες μία-μία.</p>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
       : `<div class="g-field"><label for="gf-${k}">${l}</label>${t==="textarea"?`<textarea class="g-in" id="gf-${k}">${esc(it[k])}</textarea>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
     <datalist id="gcats">${[...new Set(tips.map(t=>t.cat).filter(Boolean))].map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
     <div class="g-row"><button class="g-btn" data-act="saveitem">Αποθήκευση</button><button class="g-btn ghost" data-act="close">Άκυρο</button></div></div></div>`;
