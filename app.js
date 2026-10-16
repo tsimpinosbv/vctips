@@ -37,31 +37,50 @@ const ICON = {
 const TABS = [["setup","Στήσιμο"],["tips","Tips"],["venues","Γήπεδα"]];
 
 let db=null, me=null, isAdmin=false, edit=false;
-let steps=[], tips=[], venues=[], ready={steps:false,tips:false,venues:false};
+let steps=[], tips=[], venues=[], IMGS={steps:{}, tips:{}}, ready={steps:false,tips:false,venues:false};
 let tab = (location.hash||"").slice(1); if(!TABS.some(t=>t[0]===tab)) tab = "setup";
-let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;   // zoom: {src, alt} of the photo shown full screen
+let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;   // zoom: {k, i, idx} — which item's photos are full screen, and which one
 try{ venueId = localStorage.getItem("vct-venue"); }catch{}
 
-/* the official VideoCheck layout (img/videocheck-layout.jpg); tap opens it full size for zooming */
+/* Photos: up to MAXPH per step or tip. Each photo is its own document in the same collection ({imgOf: parentId, data}),
+   so a step never reaches Firestore's 1 MB document limit; the parent keeps their order in `imgs`.
+   Older items may still have a single `img` field, and `diagram: true` shows the official VideoCheck layout. */
+const MAXPH = 4;
 const LAYOUT = "img/videocheck-layout.jpg";
 const LAYOUT_ALT = "Διάταξη VideoCheck: κάμερες γραμμών 1–8, C, D, κάμερες block Y, T, R, L, K, J, κάμερες φιλέ A, B, E, W, κάμερες U, I, κάμερα σκηνής S, Server 1, Server 2 και Server Main με UPS και πρίζα σούκο";
-/* step 1 shows its picture large; tap opens it full screen */
-function diagram(){
-  return `<button class="g-layout" data-act="zoom" data-k="steps" data-i="0" aria-label="Μεγέθυνση της διάταξης">
-    <img src="${LAYOUT}" width="1386" height="916" alt="${esc(LAYOUT_ALT)}"><span>Πάτα για μεγέθυνση</span></button>`;
+function photos(it, k){
+  const out = [];
+  if(it.diagram) out.push({src:LAYOUT, alt:LAYOUT_ALT, diagram:true});
+  if(it.img) out.push({src:it.img, alt:it.title||"", legacy:true});
+  (it.imgs||[]).forEach(id => { const d = IMGS[k] && IMGS[k][id]; if(d) out.push({src:d, alt:it.title||"", id}); });
+  return out;
 }
-/* every other photo is a small thumbnail that opens full screen */
-const imgOf = it => it.img || (it.diagram ? LAYOUT : "");
-function thumb(it, k, i){
-  const src = imgOf(it); if(!src) return "";
-  return `<button class="g-thumb" data-act="zoom" data-k="${k}" data-i="${i}" aria-label="Μεγέθυνση φωτογραφίας: ${esc(it.title||"")}"><img src="${src}" alt="" loading="lazy"></button>`;
+/* step 1: first picture large, tap opens it full screen */
+function bigPhoto(it, k, i){
+  const ph = photos(it, k)[0]; if(!ph) return "";
+  return `<div class="g-media${ph.diagram?" layout":""}"><button class="g-layout" data-act="zoom" data-k="${k}" data-i="${i}" data-n="0" aria-label="Μεγέθυνση φωτογραφίας">
+    <img src="${ph.src}" ${ph.diagram?'width="1386" height="916"':""} alt="${esc(ph.alt)}" loading="lazy"><span>Πάτα για μεγέθυνση</span></button></div>`;
+}
+/* everything else: small thumbnails in a row */
+function thumbs(it, k, i, from=0){
+  const ph = photos(it, k); if(ph.length<=from) return "";
+  return `<div class="g-thumbs">${ph.slice(from).map((p,n)=>`<button class="g-thumb" data-act="zoom" data-k="${k}" data-i="${i}" data-n="${n+from}" aria-label="Μεγέθυνση φωτογραφίας ${n+from+1} από ${ph.length}"><img src="${p.src}" alt="" loading="lazy"></button>`).join("")}</div>`;
 }
 function viewZoom(){
   if(!zoom) return "";
-  return `<div class="g-zoom" role="dialog" aria-modal="true" aria-label="${esc(zoom.alt)}" data-act="unzoom">
+  const it = LIST(zoom.k)[zoom.i]; const ph = it ? photos(it, zoom.k) : [];
+  if(!ph.length){ zoom=null; return ""; }
+  const n = Math.min(zoom.idx, ph.length-1), p = ph[n], many = ph.length>1;
+  return `<div class="g-zoom" role="dialog" aria-modal="true" aria-label="${esc(p.alt)}" data-act="unzoom">
     <button class="g-zoom-x" data-act="unzoom">Κλείσιμο ✕</button>
-    <div class="g-zoom-in"><img src="${zoom.src}" alt="${esc(zoom.alt)}" data-act="zoomfull"></div>
-    <p class="g-zoom-hint">Πάτα την εικόνα για πλήρες μέγεθος</p></div>`;
+    ${many?`<span class="g-zoom-n">${n+1} / ${ph.length}</span>`:""}
+    <div class="g-zoom-in" id="gzoomin"><img src="${p.src}" alt="${esc(p.alt)}" data-act="zoomfull"></div>
+    ${many?`<button class="g-zoom-nav prev" data-act="zoomnav" data-d="-1" aria-label="Προηγούμενη" ${n===0?"disabled":""}>‹</button><button class="g-zoom-nav next" data-act="zoomnav" data-d="1" aria-label="Επόμενη" ${n===ph.length-1?"disabled":""}>›</button>`:""}
+    <p class="g-zoom-hint">Πάτα την εικόνα για πλήρες μέγεθος${many?" · σύρε για την επόμενη":""}</p></div>`;
+}
+function zoomStep(d){
+  if(!zoom) return; const it = LIST(zoom.k)[zoom.i]; const len = it ? photos(it, zoom.k).length : 0;
+  const nx = zoom.idx + d; if(nx<0 || nx>=len) return; zoom.idx = nx; render();
 }
 
 /* V.C. Tips venues (own list, collection vct_venues): code (acronym), name, city, address, map (Google Maps link or "lat,lng"), notes */
@@ -88,10 +107,10 @@ function viewSetup(){
   const empty = isAdmin
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
-  return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τον εξοπλισμό ως τη δοκιμαστική λήψη.</p>
+  return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
   <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step">
-    ${i===0 ? (s.img?`<div class="g-media"><button class="g-layout" data-act="zoom" data-k="steps" data-i="0" aria-label="Μεγέθυνση φωτογραφίας"><img src="${s.img}" alt="${esc(s.title)}" loading="lazy"><span>Πάτα για μεγέθυνση</span></button></div>`:s.diagram?`<div class="g-media layout">${diagram()}</div>`:"") : ""}
-    <div class="g-body"><div class="g-head"><div><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2></div>${i>0?thumb(s,"steps",i):""}</div><p class="g-txt">${esc(s.text)}</p>${tools("steps",i,n)}</div></article>`).join("") : empty}
+    ${i===0 ? bigPhoto(s,"steps",0) : ""}
+    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2><p class="g-txt">${esc(s.text)}</p>${thumbs(s,"steps",i,i===0?1:0)}${tools("steps",i,n)}</div></article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
@@ -106,7 +125,7 @@ function viewTips(){
     : emptyBox("Κανένα tip σε αυτή την κατηγορία", "");
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
-  <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<div class="g-head"><h3>${esc(t.title)}</h3>${thumb(t,"tips",i)}</div><p class="g-txt">${esc(t.text)}</p>${tools("tips",i,tips.length)}</article>`).join("") : empty}
+  <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3><p class="g-txt">${esc(t.text)}</p>${thumbs(t,"tips",i)}${tools("tips",i,tips.length)}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
 }
 
@@ -136,8 +155,8 @@ function viewVenues(){
 }
 
 const FORMS = {
-  steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφία","image"]],
-  tips:[["cat","Κατηγορία","input"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφία (προαιρετική)","image"]],
+  steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφίες (έως 4)","image"]],
+  tips:[["cat","Κατηγορία","input"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 4)","image"]],
   venues:[["code","Αρκτικόλεξο","input"],["name","Όνομα γηπέδου","input"],["city","Πόλη / περιοχή","input"],["address","Διεύθυνση (για το Google Maps)","input"],["map","Σύνδεσμος Google Maps ή συντεταγμένες (προαιρετικό)","input"],["notes","Σημειώσεις (πρόσβαση, πάρκινγκ, υπεύθυνος γηπέδου)","textarea"]],
 };
 const NAMES = {steps:"βήμα", tips:"tip", venues:"γήπεδο"};
@@ -155,7 +174,10 @@ function viewSheet(){
   return `<div class="g-sheet" data-act="closebg"><div class="g-pane" role="dialog" aria-modal="true" aria-labelledby="gsh">
     <h2 id="gsh">${sheet.id?"Επεξεργασία: ":"Νέο "}${NAMES[sheet.kind]}</h2>
     ${FORMS[sheet.kind].map(([k,l,t])=>t==="image"
-      ? `<div class="g-field"><label for="gf-${k}">${l}</label><div class="g-imgprev">${it.img?`<img src="${it.img}" alt="">`:""}<input type="file" id="gf-${k}" accept="image/*">${it.img?`<button class="g-tb del" data-act="rmimg" type="button">Αφαίρεση φωτογραφίας</button>`:""}</div></div>`
+      ? `<div class="g-field"><label for="gf-${k}">${l}</label>
+          ${sheet.photos.length?`<div class="g-phedit">${sheet.photos.map((p,n)=>`<div class="ph"><img src="${p.src}" alt="">
+            <div class="phb">${n>0?`<button class="g-tb" type="button" data-act="phmove" data-n="${n}" data-d="-1" aria-label="Μετακίνηση αριστερά">‹</button>`:""}<button class="g-tb del" type="button" data-act="phdel" data-n="${n}" aria-label="Αφαίρεση φωτογραφίας">✕</button></div></div>`).join("")}</div>`:""}
+          ${sheet.photos.filter(p=>!p.diagram).length<MAXPH?`<label class="g-addph"><input type="file" id="gf-${k}" accept="image/*" multiple>+ Προσθήκη φωτογραφιών</label>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
       : `<div class="g-field"><label for="gf-${k}">${l}</label>${t==="textarea"?`<textarea class="g-in" id="gf-${k}">${esc(it[k])}</textarea>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
     <datalist id="gcats">${[...new Set(tips.map(t=>t.cat).filter(Boolean))].map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
     <div class="g-row"><button class="g-btn" data-act="saveitem">Αποθήκευση</button><button class="g-btn ghost" data-act="close">Άκυρο</button></div></div></div>`;
@@ -175,8 +197,8 @@ function render(){
 }
 
 function resizeImage(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>{ const im=new Image(); im.onload=()=>{
-  const max=1200, s=Math.min(1,max/Math.max(im.width,im.height)); const c=document.createElement("canvas"); c.width=Math.round(im.width*s); c.height=Math.round(im.height*s);
-  c.getContext("2d").drawImage(im,0,0,c.width,c.height); let q=.8, out=c.toDataURL("image/jpeg",q); while(out.length>700000 && q>.35){ q-=.1; out=c.toDataURL("image/jpeg",q); } res(out); };
+  const max=1600, s=Math.min(1,max/Math.max(im.width,im.height)); const c=document.createElement("canvas"); c.width=Math.round(im.width*s); c.height=Math.round(im.height*s);
+  c.getContext("2d").drawImage(im,0,0,c.width,c.height); let q=.8, out=c.toDataURL("image/jpeg",q); while(out.length>850000 && q>.35){ q-=.1; out=c.toDataURL("image/jpeg",q); } res(out); };
   im.onerror=rej; im.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); }); }
 
 function readSheet(){ if(!sheet||!FORMS[sheet.kind]) return; for(const [k,,t] of FORMS[sheet.kind]){ if(t==="image") continue; const f=$("gf-"+k); if(f) sheet.item[k]=f.value.trim(); } }
@@ -191,7 +213,8 @@ async function onClick(ev){
     case "tab": ev.preventDefault(); tab=el.dataset.t; history.replaceState(null,"",location.pathname+"#"+tab); render(); window.scrollTo(0,0); break;
     case "toggle": edit=!edit; render(); break;
     case "cat": tipCat=el.dataset.c; render(); break;
-    case "zoom": { const it=LIST(k)[i]; const src = it ? imgOf(it) : LAYOUT; zoom={src: src||LAYOUT, alt: (it&&it.diagram&&!it.img) ? LAYOUT_ALT : (it&&it.title)||""}; render(); break; }
+    case "zoom": zoom={k, i, idx:+el.dataset.n||0}; render(); break;
+    case "zoomnav": zoomStep(+el.dataset.d); break;
     case "zoomfull": el.closest(".g-zoom-in").classList.toggle("full"); break;
     case "unzoom": if(ev.target===el || ev.target.classList.contains("g-zoom-in") || el.classList.contains("g-zoom-x")){ zoom=null; render(); } break;
     case "pick": pickVenue(el.dataset.id); window.scrollTo({top:0,behavior:"smooth"}); break;
@@ -201,22 +224,37 @@ async function onClick(ev){
         arr.forEach((x,n)=>{ if(n!==i&&n!==j&&x.order!==n) b.update(db.doc(`${COL(k)}/${x.id}`),{order:n}); }); await b.commit(); }catch{ fail(); } break; }
     case "del":
       if(!el.classList.contains("armed")){ el.classList.add("armed"); el.textContent="Σίγουρα; Πάτα ξανά"; setTimeout(()=>{ if(el.isConnected){ el.classList.remove("armed"); el.textContent="Διαγραφή"; } },3000); }
-      else { const it=LIST(k)[i]; try{ await db.doc(`${COL(k)}/${it.id}`).delete(); toast("Διαγράφηκε"); }catch{ fail(); } }
+      else { const it=LIST(k)[i]; try{ const b=db.batch(); b.delete(db.doc(`${COL(k)}/${it.id}`)); (it.imgs||[]).forEach(id=>b.delete(db.doc(`${COL(k)}/${id}`))); await b.commit(); toast("Διαγράφηκε"); }catch{ fail(); } }
       break;
-    case "new": sheet={kind:k, id:null, item:{}}; render(); break;
-    case "edit": { const it=LIST(k)[i]; sheet={kind:k, id:it.id, item:{...it}}; render(); break; }
+    case "new": sheet={kind:k, id:null, item:{}, photos:[]}; render(); break;
+    case "edit": { const it=LIST(k)[i]; sheet={kind:k, id:it.id, item:{...it}, photos: k==="venues"?[]:photos(it,k)}; render(); break; }
     case "close": case "closebg": sheet=null; render(); break;
-    case "rmimg": readSheet(); sheet.item.img=""; sheet.item.diagram=false; render(); break;
+    case "phdel": readSheet(); sheet.photos.splice(+el.dataset.n,1); render(); break;
+    case "phmove": { readSheet(); const n=+el.dataset.n, ph=sheet.photos; [ph[n-1],ph[n]]=[ph[n],ph[n-1]]; render(); break; }
     case "saveitem": {
       readSheet(); const it=sheet.item, kind=sheet.kind;
       if(!(it.title||it.name)){ toast(kind==="venues"?"Συμπλήρωσε το όνομα του γηπέδου":"Συμπλήρωσε τίτλο"); break; }
       const data={...it}; delete data.id;
-      el.disabled=true;
+      el.disabled=true; el.textContent="Αποθήκευση…";
       try{
-        if(sheet.id) await db.doc(`${COL(kind)}/${sheet.id}`).set(data);
-        else { if(kind!=="venues") data.order=LIST(kind).length; const ref=await db.collection(COL(kind)).add(data); if(kind==="venues"){ venueId=ref.id; try{ localStorage.setItem("vct-venue", venueId); }catch{} } }
+        const col=db.collection(COL(kind)), ref = sheet.id ? col.doc(sheet.id) : col.doc();
+        if(!sheet.id && kind!=="venues") data.order=LIST(kind).length;
+        const b=db.batch();
+        if(kind!=="venues"){
+          /* every photo becomes its own document; photos removed in the form are deleted */
+          delete data.img; data.imgs=[]; data.diagram=false;
+          for(const p of sheet.photos){
+            if(p.diagram){ data.diagram=true; continue; }
+            if(p.id){ data.imgs.push(p.id); continue; }
+            const pr=col.doc(); b.set(pr, {imgOf:ref.id, data:p.src}); data.imgs.push(pr.id);
+          }
+          (it.imgs||[]).filter(id=>!data.imgs.includes(id)).forEach(id=>b.delete(col.doc(id)));
+        }
+        b.set(ref, data);
+        await b.commit();
+        if(kind==="venues" && !sheet.id){ venueId=ref.id; try{ localStorage.setItem("vct-venue", venueId); }catch{} }
         sheet=null; toast("Αποθηκεύτηκε"); render();
-      }catch(e){ el.disabled=false; toast(/size|large|exceed/i.test(e?.message||"")?"Η φωτογραφία είναι πολύ μεγάλη. Δοκίμασε μικρότερη.":"Η αποθήκευση απέτυχε. Δοκίμασε ξανά."); }
+      }catch(e){ el.disabled=false; el.textContent="Αποθήκευση"; toast(/size|large|exceed/i.test(e?.message||"")?"Η φωτογραφία είναι πολύ μεγάλη. Δοκίμασε μικρότερη.":"Η αποθήκευση απέτυχε. Δοκίμασε ξανά."); }
       break; }
     case "import": sheet={kind:"import"}; render(); break;
     case "doimport": {
@@ -268,16 +306,29 @@ async function onClick(ev){
   g.addEventListener("change", async ev => {
     const t = ev.target;
     if(t.id==="gsel") pickVenue(t.value);
-    else if(t.id==="gf-img" && t.files[0]){ readSheet(); try{ sheet.item.img = await resizeImage(t.files[0]); sheet.item.diagram=false; }catch{ toast("Δεν άνοιξε η εικόνα. Δοκίμασε JPG ή PNG."); } render(); }
+    else if(t.id==="gf-img" && t.files.length){
+      readSheet();
+      const room = MAXPH - sheet.photos.filter(p=>!p.diagram).length, files=[...t.files].slice(0, Math.max(0,room));
+      if(t.files.length>room) toast(`Μπαίνουν έως ${MAXPH} φωτογραφίες· κράτησα τις πρώτες ${files.length}.`);
+      for(const f of files){ try{ sheet.photos.push({src: await resizeImage(f)}); }catch{ toast("Δεν άνοιξε μία εικόνα. Δοκίμασε JPG ή PNG."); } }
+      render();
+    }
   });
   g.addEventListener("input", ev => { if(ev.target.id==="gq"){ filter=ev.target.value; render(); } });
-  addEventListener("keydown", e => { if(e.key==="Escape" && zoom){ zoom=null; render(); } });
+  addEventListener("keydown", e => { if(!zoom) return; if(e.key==="Escape"){ zoom=null; render(); } else if(e.key==="ArrowRight") zoomStep(1); else if(e.key==="ArrowLeft") zoomStep(-1); });
+  /* swipe left/right in the full-screen viewer (not while viewing at actual size) */
+  let sx=null, sy0=null;
+  g.addEventListener("touchstart", e => { if(zoom && !e.target.closest(".g-zoom-in.full")){ sx=e.touches[0].clientX; sy0=e.touches[0].clientY; } }, {passive:true});
+  g.addEventListener("touchend", e => { if(sx===null) return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy0; sx=null;
+    if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5) zoomStep(dx<0?1:-1); }, {passive:true});
   addEventListener("hashchange", () => { const h=location.hash.slice(1); if(TABS.some(x=>x[0]===h) && h!==tab){ tab=h; render(); } });
   render();
-  const byOrder = s => s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.order??1e9)-(b.order??1e9));
+  /* photo documents ({imgOf}) live next to the items; split them out */
+  const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });
+    IMGS[k]=im; return items.sort((a,b)=>(a.order??1e9)-(b.order??1e9)); };
   const denied = name => () => { ready[name]=true; render(); };
-  db.collection("vct_steps").onSnapshot(s=>{ steps=byOrder(s); ready.steps=true; render(); }, denied("steps"));
-  db.collection("vct_tips").onSnapshot(s=>{ tips=byOrder(s); ready.tips=true; render(); }, denied("tips"));
+  db.collection("vct_steps").onSnapshot(s=>{ steps=split("steps",s); ready.steps=true; render(); }, denied("steps"));
+  db.collection("vct_tips").onSnapshot(s=>{ tips=split("tips",s); ready.tips=true; render(); }, denied("tips"));
   db.collection("vct_venues").limit(2000).onSnapshot(s=>{ venues=s.docs.map(d=>({id:d.id,...d.data()})); ready.venues=true; render(); }, denied("venues"));
 })();
 
