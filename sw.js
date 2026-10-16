@@ -1,7 +1,7 @@
 /* V.C. Tips service worker: installable app, page shell opens without a connection.
    Files from this site: network first (always the latest version), cached copy when offline.
    Firebase / Google requests are not touched (Firestore keeps its own offline copy of the content). */
-const CACHE = "vctips-v4";
+const CACHE = "vctips-v5";
 const SHELL = ["./", "./index.html", "./app.js", "./auth.js", "./firebase-config.js", "./manifest.webmanifest",
                "./icons/icon-192.png", "./icons/icon-512.png", "./img/videocheck-layout.jpg"];
 self.addEventListener("install", e => {

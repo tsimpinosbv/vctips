@@ -114,6 +114,30 @@ function viewSetup(){
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
+const tipCats = () => [...new Set(tips.map(t=>t.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"el"));
+/* tip form: pick an existing category, none, or type a new one */
+function catField(cur){
+  const cats = tipCats(), isNew = sheet.newCat || (cur && !cats.includes(cur));
+  return `<div class="g-field"><label for="gf-cat">Κατηγορία</label>
+    <select class="g-in" id="gf-cat"><option value="" ${!cur&&!isNew?"selected":""}>— Χωρίς κατηγορία —</option>
+      ${cats.map(c=>`<option value="${esc(c)}" ${c===cur&&!isNew?"selected":""}>${esc(c)}</option>`).join("")}
+      <option value="__new" ${isNew?"selected":""}>+ Νέα κατηγορία…</option></select>
+    ${isNew?`<input class="g-in" id="gf-catnew" placeholder="Όνομα νέας κατηγορίας" value="${esc(cats.includes(cur)?"":cur||"")}" autocomplete="off">`:""}</div>`;
+}
+/* edit mode on the Tips tab: rename or remove a category for every tip that has it */
+function viewCats(){
+  const cats = tipCats(); if(!cats.length) return "";
+  return `<section class="g-tip g-cats" style="border-left-color:var(--blue)"><h3>Κατηγορίες</h3>
+    <p class="g-txt" style="color:var(--muted)">Νέα κατηγορία προσθέτεις από ένα tip: «+ Νέο tip» ή ✎ → Κατηγορία → «+ Νέα κατηγορία…». Εδώ αλλάζεις όνομα (✓) ή αφαιρείς μια κατηγορία από όλα τα tips της (✕). Ο αριθμός δείχνει πόσα tips έχει.</p>
+    ${cats.map((c,n)=>`<div class="g-catrow"><input class="g-in" id="gcat-${n}" value="${esc(c)}" aria-label="Όνομα κατηγορίας ${esc(c)}"><span class="g-catn">${tips.filter(t=>t.cat===c).length}</span>
+      <button class="g-tb" data-act="catren" data-n="${n}" aria-label="Αποθήκευση ονόματος" title="Αποθήκευση ονόματος">✓</button><button class="g-tb del" data-act="catdel" data-n="${n}" aria-label="Αφαίρεση κατηγορίας" title="Αφαίρεση κατηγορίας">✕</button></div>`).join("")}
+  </section>`;
+}
+async function renameCat(from, to){
+  const b=db.batch(); tips.filter(t=>t.cat===from).forEach(t=>b.update(db.doc(`vct_tips/${t.id}`), {cat:to})); await b.commit();
+  if(tipCat===from) tipCat = to || "Όλα";
+}
+
 function viewTips(){
   if(!ready.tips) return `<h1 class="g-h1">Tips</h1><p class="g-lede">Φόρτωση…</p>`;
   const cats = ["Όλα", ...new Set(tips.map(t=>t.cat).filter(Boolean))];
@@ -124,6 +148,7 @@ function viewTips(){
                : emptyBox("Δεν υπάρχουν tips ακόμα", "Θα προστεθούν σύντομα."))
     : emptyBox("Κανένα tip σε αυτή την κατηγορία", "");
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
+  ${edit?viewCats():""}
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
   <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3><p class="g-txt">${esc(t.text)}</p>${thumbs(t,"tips",i)}${tools("tips",i,tips.length)}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
@@ -156,7 +181,7 @@ function viewVenues(){
 
 const FORMS = {
   steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφίες (έως 4)","image"]],
-  tips:[["cat","Κατηγορία","input"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 4)","image"]],
+  tips:[["cat","Κατηγορία","cat"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 4)","image"]],
   venues:[["code","Αρκτικόλεξο","input"],["name","Όνομα γηπέδου","input"],["city","Πόλη / περιοχή","input"],["address","Διεύθυνση (για το Google Maps)","input"],["map","Σύνδεσμος Google Maps ή συντεταγμένες (προαιρετικό)","input"],["notes","Σημειώσεις (πρόσβαση, πάρκινγκ, υπεύθυνος γηπέδου)","textarea"]],
 };
 const NAMES = {steps:"βήμα", tips:"tip", venues:"γήπεδο"};
@@ -173,14 +198,14 @@ function viewSheet(){
   const it = sheet.item;
   return `<div class="g-sheet" data-act="closebg"><div class="g-pane" role="dialog" aria-modal="true" aria-labelledby="gsh">
     <h2 id="gsh">${sheet.id?"Επεξεργασία: ":"Νέο "}${NAMES[sheet.kind]}</h2>
-    ${FORMS[sheet.kind].map(([k,l,t])=>t==="image"
+    ${FORMS[sheet.kind].map(([k,l,t])=>t==="cat" ? catField(it[k])
+      : t==="image"
       ? `<div class="g-field"><label for="gf-${k}">${l}</label>
           ${sheet.photos.length?`<div class="g-phedit">${sheet.photos.map((p,n)=>`<div class="ph"><img src="${p.src}" alt="">
             <div class="phb">${n>0?`<button class="g-tb" type="button" data-act="phmove" data-n="${n}" data-d="-1" aria-label="Μετακίνηση αριστερά">‹</button>`:""}<button class="g-tb del" type="button" data-act="phdel" data-n="${n}" aria-label="Αφαίρεση φωτογραφίας">✕</button></div></div>`).join("")}</div>`:""}
           ${sheet.photos.filter(p=>!p.diagram).length<MAXPH?`<label class="g-addph"><input type="file" id="gf-${k}" accept="image/*" multiple>${sheet.photos.filter(p=>!p.diagram).length?`+ Προσθήκη κι άλλης φωτογραφίας (${sheet.photos.filter(p=>!p.diagram).length}/${MAXPH})`:"+ Προσθήκη φωτογραφιών"}</label>
             <p class="g-lede" style="margin:0;font-size:13px">Αν το κινητό σου δεν αφήνει να διαλέξεις πολλές μαζί, πρόσθεσέ τες μία-μία.</p>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
       : `<div class="g-field"><label for="gf-${k}">${l}</label>${t==="textarea"?`<textarea class="g-in" id="gf-${k}">${esc(it[k])}</textarea>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
-    <datalist id="gcats">${[...new Set(tips.map(t=>t.cat).filter(Boolean))].map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
     <div class="g-row"><button class="g-btn" data-act="saveitem">Αποθήκευση</button><button class="g-btn ghost" data-act="close">Άκυρο</button></div></div></div>`;
 }
 
@@ -202,7 +227,9 @@ function resizeImage(file){ return new Promise((res,rej)=>{ const r=new FileRead
   c.getContext("2d").drawImage(im,0,0,c.width,c.height); let q=.8, out=c.toDataURL("image/jpeg",q); while(out.length>850000 && q>.35){ q-=.1; out=c.toDataURL("image/jpeg",q); } res(out); };
   im.onerror=rej; im.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); }); }
 
-function readSheet(){ if(!sheet||!FORMS[sheet.kind]) return; for(const [k,,t] of FORMS[sheet.kind]){ if(t==="image") continue; const f=$("gf-"+k); if(f) sheet.item[k]=f.value.trim(); } }
+function readSheet(){ if(!sheet||!FORMS[sheet.kind]) return; for(const [k,,t] of FORMS[sheet.kind]){ if(t==="image") continue;
+  if(t==="cat"){ const sel=$("gf-cat"), nw=$("gf-catnew"); if(sel) sheet.item.cat = sel.value==="__new" ? (nw?nw.value.trim():"") : sel.value; continue; }
+  const f=$("gf-"+k); if(f) sheet.item[k]=f.value.trim(); } }
 const fail = () => toast("Η αποθήκευση απέτυχε. Έλεγξε τη σύνδεση και δοκίμασε ξανά.");
 function pickVenue(id){ venueId=id||null; try{ localStorage.setItem("vct-venue", venueId||""); }catch{} render(); }
 
@@ -214,6 +241,13 @@ async function onClick(ev){
     case "tab": ev.preventDefault(); tab=el.dataset.t; history.replaceState(null,"",location.pathname+"#"+tab); render(); window.scrollTo(0,0); break;
     case "toggle": edit=!edit; render(); break;
     case "cat": tipCat=el.dataset.c; render(); break;
+    case "catren": { const from=tipCats()[+el.dataset.n], to=($("gcat-"+el.dataset.n).value||"").trim();
+      if(!to){ toast("Γράψε όνομα, ή πάτα Αφαίρεση"); break; } if(to===from) break;
+      try{ await renameCat(from, to); toast("Η κατηγορία μετονομάστηκε"); }catch{ fail(); } break; }
+    case "catdel":
+      if(!el.classList.contains("armed")){ el.classList.add("armed"); el.textContent="Σίγουρα;"; setTimeout(()=>{ if(el.isConnected){ el.classList.remove("armed"); el.textContent="✕"; } },3000); }
+      else { const from=tipCats()[+el.dataset.n]; try{ await renameCat(from, ""); toast("Τα tips της έμειναν χωρίς κατηγορία"); }catch{ fail(); } }
+      break;
     case "zoom": zoom={k, i, idx:+el.dataset.n||0}; render(); break;
     case "zoomnav": zoomStep(+el.dataset.d); break;
     case "zoomfull": el.closest(".g-zoom-in").classList.toggle("full"); break;
@@ -227,13 +261,14 @@ async function onClick(ev){
       if(!el.classList.contains("armed")){ el.classList.add("armed"); el.textContent="Σίγουρα; Πάτα ξανά"; setTimeout(()=>{ if(el.isConnected){ el.classList.remove("armed"); el.textContent="Διαγραφή"; } },3000); }
       else { const it=LIST(k)[i]; try{ const b=db.batch(); b.delete(db.doc(`${COL(k)}/${it.id}`)); (it.imgs||[]).forEach(id=>b.delete(db.doc(`${COL(k)}/${id}`))); await b.commit(); toast("Διαγράφηκε"); }catch{ fail(); } }
       break;
-    case "new": sheet={kind:k, id:null, item:{}, photos:[]}; render(); break;
+    case "new": sheet={kind:k, id:null, item: k==="tips"&&tipCat!=="Όλα" ? {cat:tipCat} : {}, photos:[]}; render(); break;
     case "edit": { const it=LIST(k)[i]; sheet={kind:k, id:it.id, item:{...it}, photos: k==="venues"?[]:photos(it,k)}; render(); break; }
     case "close": case "closebg": sheet=null; render(); break;
     case "phdel": readSheet(); sheet.photos.splice(+el.dataset.n,1); render(); break;
     case "phmove": { readSheet(); const n=+el.dataset.n, ph=sheet.photos; [ph[n-1],ph[n]]=[ph[n],ph[n-1]]; render(); break; }
     case "saveitem": {
       readSheet(); const it=sheet.item, kind=sheet.kind;
+      if(kind==="tips" && sheet.newCat && !it.cat){ toast("Γράψε το όνομα της νέας κατηγορίας"); break; }
       if(!(it.title||it.name)){ toast(kind==="venues"?"Συμπλήρωσε το όνομα του γηπέδου":"Συμπλήρωσε τίτλο"); break; }
       const data={...it}; delete data.id;
       el.disabled=true; el.textContent="Αποθήκευση…";
@@ -307,6 +342,7 @@ async function onClick(ev){
   g.addEventListener("change", async ev => {
     const t = ev.target;
     if(t.id==="gsel") pickVenue(t.value);
+    else if(t.id==="gf-cat"){ readSheet(); sheet.newCat = t.value==="__new"; if(!sheet.newCat) sheet.item.cat=t.value; render(); if(sheet.newCat){ const n=$("gf-catnew"); if(n) n.focus(); } }
     else if(t.id==="gf-img" && t.files.length){
       readSheet();
       const room = MAXPH - sheet.photos.filter(p=>!p.diagram).length, files=[...t.files].slice(0, Math.max(0,room));

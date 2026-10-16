@@ -75,6 +75,10 @@ main.g-main{padding-bottom:calc(var(--tabh) + 70px + env(safe-area-inset-bottom,
 .g-chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .g-tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--blue-bg);color:var(--blue)}
 .g-tip{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:12px;padding:14px 16px;display:grid;gap:8px;min-width:0}
+.g-cats{margin-bottom:14px}
+.g-catrow{display:flex;gap:8px;align-items:center}
+.g-catrow .g-in{flex:1 1 auto;min-width:0;padding:8px 10px;font-size:15px}
+.g-catn{font:500 13px var(--f-mono);color:var(--muted);min-width:2ch;text-align:right}
 .g-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
 .g-thumb{flex:none;width:76px;height:76px;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--court);cursor:zoom-in}
 .g-thumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -90,7 +94,7 @@ button.g-layout{border:0;padding:0;background:none;cursor:zoom-in}
 .g-zoom-nav:disabled{opacity:.2}
 .g-zoom-nav.prev{left:calc(6px + env(safe-area-inset-left,0px))}
 .g-zoom-nav.next{right:calc(6px + env(safe-area-inset-right,0px))}
-.g-addph{display:inline-flex;align-items:center;justify-content:center;border:2px dashed var(--blue);color:var(--blue);border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer;justify-self:start;text-transform:none;letter-spacing:0;font-size:15px}
+.g-field .g-addph{display:inline-flex;align-items:center;justify-content:center;border:2px dashed var(--blue);color:var(--blue);border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer;justify-self:start;text-transform:none;letter-spacing:0;font-size:15px}
 .g-addph input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .g-addph:focus-within{outline:2px solid var(--blue);outline-offset:2px}
 .g-phedit{display:flex;flex-wrap:wrap;gap:10px}
