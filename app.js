@@ -241,6 +241,10 @@ const COL = k => k==="steps"?"vct_steps":k==="tips"?"vct_tips":"vct_venues";
 
 function viewSheet(){
   if(!sheet) return "";
+  if(sheet.kind==="export") return `<div class="g-sheet" data-act="closebg"><div class="g-pane" role="dialog" aria-modal="true" aria-labelledby="gsh">
+    <h2 id="gsh">Όλα τα κείμενα</h2><p class="g-lede" style="margin:0">Κράτα πατημένο μέσα στο κουτί → Επιλογή όλων → Αντιγραφή.</p>
+    <textarea class="g-in" style="min-height:320px" readonly>${esc(sheet.txt)}</textarea>
+    <div class="g-row"><button class="g-btn ghost" data-act="close">Κλείσιμο</button></div></div></div>`;
   if(sheet.kind==="import") return `<div class="g-sheet" data-act="closebg"><div class="g-pane" role="dialog" aria-modal="true" aria-labelledby="gsh">
     <h2 id="gsh">Εισαγωγή λίστας γηπέδων</h2>
     <p class="g-lede" style="margin:0">Ένα γήπεδο ανά γραμμή: <b>Αρκτικόλεξο ; Όνομα ; Πόλη ; Διεύθυνση</b>. Μπορείς να επικολλήσεις στήλες από Excel. Αν το αρκτικόλεξο υπάρχει ήδη, το γήπεδο ενημερώνεται· αλλιώς προστίθεται.</p>
@@ -269,6 +273,7 @@ function render(){
       ${isAdmin?`<button class="g-pill" data-act="toggle" aria-pressed="${edit}">${edit?"Τέλος":"✎ Επεξεργασία"}</button>`:""}
 </div></header>
     <main class="g-main g-wrap">${tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues()}
+      ${edit?`<div class="g-export"><button class="g-btn ghost" data-act="exporttext">Αντιγραφή όλων των κειμένων</button><p class="g-lede" style="margin:0;font-size:13px">Βήματα, tips και σημειώσεις γηπέδων σε απλό κείμενο, π.χ. για έλεγχο διατύπωσης.</p></div>`:""}
       ${me&&me.email?`<p class="g-who">Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}</p>`:""}</main>
     <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k?'aria-current="page"':""}>${ICON[k]}${l}</a>`).join("")}</div></nav>
     ${viewSheet()}${viewZoom()}`;
@@ -296,6 +301,17 @@ async function onClick(ev){
     case "toggle": edit=!edit; render(); break;
     case "cat": tipCat=el.dataset.c; render(); break;
     case "fmt": applyFmt(el.dataset.f, el.dataset.t); break;
+    case "exporttext": {
+      const parts = ["ΣΤΗΣΙΜΟ"];
+      steps.forEach((x,n)=>parts.push(`\n[Βήμα ${n+1}] ${x.title||""}\n${x.text||""}`));
+      parts.push("\n\nTIPS");
+      tips.forEach((x,n)=>parts.push(`\n[Tip ${n+1}${x.cat?" · "+x.cat:""}] ${x.title||""}\n${x.text||""}`));
+      const vn = venues.filter(v=>v.notes);
+      if(vn.length){ parts.push("\n\nΣΗΜΕΙΩΣΕΙΣ ΓΗΠΕΔΩΝ"); vn.forEach(v=>parts.push(`\n[${v.code||v.name}] ${v.notes}`)); }
+      const txt = parts.join("\n");
+      try{ await navigator.clipboard.writeText(txt); toast("Αντιγράφηκαν. Επικόλλησέ τα όπου θέλεις."); }
+      catch{ sheet={kind:"export", txt}; render(); }
+      break; }
     case "catren": { const from=tipCats()[+el.dataset.n], to=($("gcat-"+el.dataset.n).value||"").trim();
       if(!to){ toast("Γράψε όνομα, ή πάτα Αφαίρεση"); break; } if(to===from) break;
       try{ await renameCat(from, to); toast("Η κατηγορία μετονομάστηκε"); }catch{ fail(); } break; }
