@@ -37,7 +37,7 @@ const ICON = {
 const TABS = [["setup","Στήσιμο"],["tips","Tips"],["venues","Γήπεδα"]];
 
 let db=null, me=null, isAdmin=false, edit=false;
-let steps=[], tips=[], venues=[], IMGS={steps:{}, tips:{}}, denied={}, ready={steps:false,tips:false,venues:false};
+let steps=[], tips=[], venues=[], CATORDER=[], IMGS={steps:{}, tips:{}}, denied={}, ready={steps:false,tips:false,venues:false};
 let tab = (location.hash||"").slice(1); if(!TABS.some(t=>t[0]===tab)) tab = "setup";
 let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;   // zoom: {k, i, idx} — which item's photos are full screen, and which one
 try{ venueId = localStorage.getItem("vct-venue"); }catch{}
@@ -92,10 +92,10 @@ function mapsUrl(v){
 }
 const venueKey = v => norm(v.code || v.name);
 
-function tools(kind, i, len){
+function tools(kind, i, len, jUp=i-1, jDown=i+1){
   if(!edit) return "";
-  const mv = kind==="venues" ? "" : `<button class="g-tb" data-act="up" data-k="${kind}" data-i="${i}" ${i===0?"disabled":""} aria-label="Μετακίνηση πάνω">↑</button>
-    <button class="g-tb" data-act="down" data-k="${kind}" data-i="${i}" ${i===len-1?"disabled":""} aria-label="Μετακίνηση κάτω">↓</button>`;
+  const mv = kind==="venues" ? "" : `<button class="g-tb" data-act="up" data-k="${kind}" data-i="${i}" data-j="${jUp}" ${jUp<0?"disabled":""} aria-label="Μετακίνηση πάνω">↑</button>
+    <button class="g-tb" data-act="down" data-k="${kind}" data-i="${i}" data-j="${jDown}" ${jDown<0||jDown>=len?"disabled":""} aria-label="Μετακίνηση κάτω">↓</button>`;
   return `<div class="g-tools"><button class="g-tb" data-act="edit" data-k="${kind}" data-i="${i}">✎ Επεξεργασία</button>${mv}
     <button class="g-tb del" data-act="del" data-k="${kind}" data-i="${i}">Διαγραφή</button></div>`;
 }
@@ -168,7 +168,10 @@ function viewSetup(){
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
-const tipCats = () => [...new Set(tips.map(t=>t.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"el"));
+/* category order: chosen by the admins, stored in vct_tips/_cats {order:[names]}; categories not in it follow alphabetically */
+const catRank = c => { const n=CATORDER.indexOf(c); return n<0 ? 1e6 : n; };
+const tipCats = () => [...new Set(tips.map(t=>t.cat).filter(Boolean))].sort((a,b)=>catRank(a)-catRank(b) || a.localeCompare(b,"el"));
+async function saveCatOrder(order){ await db.doc("vct_tips/_cats").set({order}); }
 /* tip form: pick an existing category, none, or type a new one */
 function catField(cur){
   const cats = tipCats(), isNew = sheet.newCat || (cur && !cats.includes(cur));
@@ -182,21 +185,26 @@ function catField(cur){
 function viewCats(){
   const cats = tipCats(); if(!cats.length) return "";
   return `<section class="g-tip g-cats" style="border-left-color:var(--blue)"><h3>Κατηγορίες</h3>
-    <p class="g-txt" style="color:var(--muted)">Νέα κατηγορία προσθέτεις από ένα tip: «+ Νέο tip» ή ✎ → Κατηγορία → «+ Νέα κατηγορία…». Εδώ αλλάζεις όνομα (✓) ή αφαιρείς μια κατηγορία από όλα τα tips της (✕). Ο αριθμός δείχνει πόσα tips έχει.</p>
-    ${cats.map((c,n)=>`<div class="g-catrow"><input class="g-in" id="gcat-${n}" value="${esc(c)}" aria-label="Όνομα κατηγορίας ${esc(c)}"><span class="g-catn">${tips.filter(t=>t.cat===c).length}</span>
+    <p class="g-txt" style="color:var(--muted)">Νέα κατηγορία προσθέτεις από ένα tip: «+ Νέο tip» ή ✎ → Κατηγορία → «+ Νέα κατηγορία…». Εδώ αλλάζεις σειρά (↑ ↓), όνομα (✓) ή αφαιρείς μια κατηγορία από όλα τα tips της (✕). Ο αριθμός δείχνει πόσα tips έχει.</p>
+    ${cats.map((c,n)=>`<div class="g-catrow"><span class="g-catmv"><button class="g-tb" data-act="catmv" data-n="${n}" data-d="-1" ${n===0?"disabled":""} aria-label="Μετακίνηση πάνω">↑</button><button class="g-tb" data-act="catmv" data-n="${n}" data-d="1" ${n===cats.length-1?"disabled":""} aria-label="Μετακίνηση κάτω">↓</button></span><input class="g-in" id="gcat-${n}" value="${esc(c)}" aria-label="Όνομα κατηγορίας ${esc(c)}"><span class="g-catn">${tips.filter(t=>t.cat===c).length}</span>
       <button class="g-tb" data-act="catren" data-n="${n}" aria-label="Αποθήκευση ονόματος" title="Αποθήκευση ονόματος">✓</button><button class="g-tb del" data-act="catdel" data-n="${n}" aria-label="Αφαίρεση κατηγορίας" title="Αφαίρεση κατηγορίας">✕</button></div>`).join("")}
   </section>`;
 }
 async function renameCat(from, to){
-  const b=db.batch(); tips.filter(t=>t.cat===from).forEach(t=>b.update(db.doc(`vct_tips/${t.id}`), {cat:to})); await b.commit();
+  const b=db.batch(); tips.filter(t=>t.cat===from).forEach(t=>b.update(db.doc(`vct_tips/${t.id}`), {cat:to}));
+  const order=tipCats().map(c=>c===from?to:c).filter((c,n,a)=>c && a.indexOf(c)===n); b.set(db.doc("vct_tips/_cats"), {order});
+  await b.commit();
   if(tipCat===from) tipCat = to || "Όλα";
 }
 
 function viewTips(){
   if(!ready.tips) return `<h1 class="g-h1">Tips</h1><p class="g-lede">Φόρτωση…</p>`;
-  const cats = ["Όλα", ...new Set(tips.map(t=>t.cat).filter(Boolean))];
+  const cats = ["Όλα", ...tipCats()];
   if(!cats.includes(tipCat)) tipCat = "Όλα";
-  const list = tips.map((t,i)=>[t,i]).filter(([t])=>tipCat==="Όλα"||t.cat===tipCat);
+  const list = tips.map((t,i)=>[t,i]).filter(([t])=>tipCat==="Όλα"||t.cat===tipCat)
+    .sort((a,b)=>(a[0].cat?catRank(a[0].cat):2e6)-(b[0].cat?catRank(b[0].cat):2e6) || (a[0].cat||"").localeCompare(b[0].cat||"","el") || a[1]-b[1]);
+  /* ↑ ↓ on a tip swap it with the neighbouring tip of the same category */
+  const nb = (n, d) => { for(let m=n+d; m>=0 && m<list.length; m+=d) if((list[m][0].cat||"")===(list[n][0].cat||"")) return list[m][1]; return -1; };
   const empty = denied.tips && !tips.length ? deniedBox() : !tips.length
     ? (isAdmin ? emptyBox("Δεν υπάρχουν tips ακόμα", "Πρόσθεσε το πρώτο ή φόρτωσε ένα αρχικό πρόχειρο.", `<button class="g-btn" data-act="seed" data-k="tips">Φόρτωση αρχικού προχείρου</button>`)
                : emptyBox("Δεν υπάρχουν tips ακόμα", "Θα προστεθούν σύντομα."))
@@ -204,7 +212,7 @@ function viewTips(){
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
   ${edit?viewCats():""}
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
-  <div class="g-list">${list.length ? list.map(([t,i])=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3><div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i)}${tools("tips",i,tips.length)}</article>`).join("") : empty}
+  <div class="g-list">${list.length ? list.map(([t,i],pos)=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3><div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i)}${tools("tips",i,tips.length,nb(pos,-1),nb(pos,1))}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
 }
 
@@ -315,6 +323,8 @@ async function onClick(ev){
       try{ await navigator.clipboard.writeText(txt); toast("Αντιγράφηκαν. Επικόλλησέ τα όπου θέλεις."); }
       catch{ sheet={kind:"export", txt}; render(); }
       break; }
+    case "catmv": { const cs=tipCats(), n=+el.dataset.n, m=n+(+el.dataset.d); if(m<0||m>=cs.length) break;
+      [cs[n],cs[m]]=[cs[m],cs[n]]; CATORDER=cs; render(); try{ await saveCatOrder(cs); }catch{ fail(); } break; }
     case "catren": { const from=tipCats()[+el.dataset.n], to=($("gcat-"+el.dataset.n).value||"").trim();
       if(!to){ toast("Γράψε όνομα, ή πάτα Αφαίρεση"); break; } if(to===from) break;
       try{ await renameCat(from, to); toast("Η κατηγορία μετονομάστηκε"); }catch{ fail(); } break; }
@@ -328,7 +338,7 @@ async function onClick(ev){
     case "unzoom": if(ev.target===el || ev.target.classList.contains("g-zoom-in") || el.classList.contains("g-zoom-x")){ zoom=null; render(); } break;
     case "pick": pickVenue(el.dataset.id); window.scrollTo({top:0,behavior:"smooth"}); break;
     case "copy": { const v=venues.find(x=>x.id===venueId); const txt=v.address||v.name; try{ await navigator.clipboard.writeText(txt); toast("Η διεύθυνση αντιγράφηκε"); }catch{ toast(txt); } break; }
-    case "up": case "down": { const arr=LIST(k), j=a==="up"?i-1:i+1; if(j<0||j>=arr.length) break;
+    case "up": case "down": { const arr=LIST(k), j=+el.dataset.j; if(!(j>=0&&j<arr.length)) break;
       try{ const b=db.batch(); b.update(db.doc(`${COL(k)}/${arr[i].id}`),{order:j}); b.update(db.doc(`${COL(k)}/${arr[j].id}`),{order:i});
         arr.forEach((x,n)=>{ if(n!==i&&n!==j&&x.order!==n) b.update(db.doc(`${COL(k)}/${x.id}`),{order:n}); }); await b.commit(); }catch{ fail(); } break; }
     case "del":
@@ -436,7 +446,7 @@ async function onClick(ev){
   addEventListener("hashchange", () => { const h=location.hash.slice(1); if(TABS.some(x=>x[0]===h) && h!==tab){ tab=h; render(); } });
   render();
   /* photo documents ({imgOf}) live next to the items; split them out */
-  const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });
+  const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(d.id==="_cats"){ CATORDER=x.order||[]; return; } if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });
     IMGS[k]=im; return items.sort((a,b)=>(a.order??1e9)-(b.order??1e9)); };
   const onDenied = name => err => { console.warn(name, err && err.code); denied[name]=true; ready[name]=true; render(); };
   db.collection("vct_steps").onSnapshot(s=>{ steps=split("steps",s); ready.steps=true; render(); }, onDenied("steps"));
