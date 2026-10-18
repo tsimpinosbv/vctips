@@ -55,7 +55,9 @@ function photos(it, k){
   (it.imgs||[]).forEach(id => { const d = IMGS[k] && IMGS[k][id]; if(d) out.push({src:d, alt:it.title||"", id}); });
   return out;
 }
-/* step 1: first picture large, tap opens it full screen */
+/* "big": first picture shown large (chosen per step/tip in the form; step 1 is large unless switched off) */
+const isBig = (it, k, i) => !!photos(it,k).length && (it.big ?? (k==="steps" && i===0));
+/* large picture; tap opens it full screen */
 function bigPhoto(it, k, i){
   const ph = photos(it, k)[0]; if(!ph) return "";
   return `<div class="g-media${ph.diagram?" layout":""}"><button class="g-layout" data-act="zoom" data-k="${k}" data-i="${i}" data-n="0" aria-label="Μεγέθυνση φωτογραφίας">
@@ -163,8 +165,8 @@ function viewSetup(){
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
   <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step">
-    ${i===0 ? bigPhoto(s,"steps",0) : ""}
-    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,i===0?1:0)}${tools("steps",i,n)}</div></article>`).join("") : empty}
+    ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
+    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}${tools("steps",i,n)}</div></article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
@@ -212,7 +214,7 @@ function viewTips(){
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
   ${edit?viewCats():""}
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
-  <div class="g-list">${list.length ? list.map(([t,i],pos)=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3><div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i)}${tools("tips",i,tips.length,nb(pos,-1),nb(pos,1))}</article>`).join("") : empty}
+  <div class="g-list">${list.length ? list.map(([t,i],pos)=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3>${isBig(t,"tips",i) ? bigPhoto(t,"tips",i) : ""}<div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i,isBig(t,"tips",i)?1:0)}${tools("tips",i,tips.length,nb(pos,-1),nb(pos,1))}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
 }
 
@@ -242,8 +244,8 @@ function viewVenues(){
 }
 
 const FORMS = {
-  steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφίες (έως 4)","image"]],
-  tips:[["cat","Κατηγορία","cat"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 4)","image"]],
+  steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφίες (έως 4)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
+  tips:[["cat","Κατηγορία","cat"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 4)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
   venues:[["code","Αρκτικόλεξο","input"],["name","Όνομα γηπέδου","input"],["city","Πόλη / περιοχή","input"],["address","Διεύθυνση (για το Google Maps)","input"],["map","Σύνδεσμος Google Maps ή συντεταγμένες (προαιρετικό)","input"],["notes","Σημειώσεις (πρόσβαση, πάρκινγκ, υπεύθυνος γηπέδου)","textarea"]],
 };
 const NAMES = {steps:"βήμα", tips:"tip", venues:"γήπεδο"};
@@ -264,7 +266,8 @@ function viewSheet(){
   const it = sheet.item;
   return `<div class="g-sheet" data-act="closebg"><div class="g-pane" role="dialog" aria-modal="true" aria-labelledby="gsh">
     <h2 id="gsh">${sheet.id?"Επεξεργασία: ":"Νέο "}${NAMES[sheet.kind]}</h2>
-    ${FORMS[sheet.kind].map(([k,l,t])=>t==="cat" ? catField(it[k])
+    ${FORMS[sheet.kind].map(([k,l,t])=>t==="check" ? `<label class="g-check"><input type="checkbox" id="gf-${k}" ${(it.big ?? (sheet.kind==="steps" && sheet.id && LIST("steps")[0]?.id===sheet.id))?"checked":""}> ${l}</label>`
+      : t==="cat" ? catField(it[k])
       : t==="image"
       ? `<div class="g-field"><label for="gf-${k}">${l}</label>
           ${sheet.photos.length?`<div class="g-phedit">${sheet.photos.map((p,n)=>`<div class="ph"><img src="${p.src}" alt="">
@@ -299,6 +302,7 @@ function resizeImage(file){ return new Promise((res,rej)=>{ const r=new FileRead
   im.onerror=rej; im.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); }); }
 
 function readSheet(){ if(!sheet||!FORMS[sheet.kind]) return; for(const [k,,t] of FORMS[sheet.kind]){ if(t==="image") continue;
+  if(t==="check"){ const c=$("gf-"+k); if(c) sheet.item[k]=c.checked; continue; }
   if(t==="cat"){ const sel=$("gf-cat"), nw=$("gf-catnew"); if(sel) sheet.item.cat = sel.value==="__new" ? (nw?nw.value.trim():"") : sel.value; continue; }
   const f=$("gf-"+k); if(f) sheet.item[k]=f.value.trim(); } }
 const fail = () => toast("Η αποθήκευση απέτυχε. Έλεγξε τη σύνδεση και δοκίμασε ξανά.");
