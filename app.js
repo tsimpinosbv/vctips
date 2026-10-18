@@ -283,6 +283,7 @@ function render(){
       <div class="g-brand"><div><b>V.C. <span>Tips</span></b><small>Οδηγός στησίματος</small></div></div><span class="g-sp"></span>
       ${isAdmin?`<button class="g-pill" data-act="toggle" aria-pressed="${edit}">${edit?"Τέλος":"✎ Επεξεργασία"}</button>`:""}
 </div></header>
+    ${navigator.onLine===false?`<div class="g-offline" role="status">Χωρίς σύνδεση · βλέπεις ό,τι είχε φορτωθεί την τελευταία φορά${edit?". Οι αλλαγές θα αποθηκευτούν μόλις επανέλθει η σύνδεση.":""}</div>`:""}
     <main class="g-main g-wrap">${tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues()}
       ${edit?`<div class="g-export"><button class="g-btn ghost" data-act="exporttext">Αντιγραφή όλων των κειμένων</button><p class="g-lede" style="margin:0;font-size:13px">Βήματα, tips και σημειώσεις γηπέδων σε απλό κείμενο, π.χ. για έλεγχο διατύπωσης.</p></div>`:""}
       ${me&&me.email?`<p class="g-who">Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}</p>`:""}</main>
@@ -437,6 +438,7 @@ async function onClick(ev){
   });
   g.addEventListener("input", ev => { if(ev.target.id==="gq"){ filter=ev.target.value; render(); }
     else if(/^gf-(text|notes)$/.test(ev.target.id)){ const pv=$("gp-"+ev.target.id.slice(3)); if(pv) pv.innerHTML=fmt(ev.target.value); } });
+  addEventListener("online", render); addEventListener("offline", render);
   addEventListener("keydown", e => { if(!zoom) return; if(e.key==="Escape"){ zoom=null; render(); } else if(e.key==="ArrowRight") zoomStep(1); else if(e.key==="ArrowLeft") zoomStep(-1); });
   /* swipe left/right in the full-screen viewer (not while viewing at actual size) */
   let sx=null, sy0=null;
