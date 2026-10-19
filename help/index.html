@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>V.C. Tips – Οδηγίες</title>
+<meta name="theme-color" content="#14213a">
+<meta name="description" content="Οδηγίες χρήσης του V.C. Tips: εγκατάσταση, στήσιμο, tips, γήπεδα και επεξεργασία για διαχειριστές.">
+<link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:wght@800&family=Commissioner:wght@400;600&display=swap&subset=greek">
+<style>
+:root{--ink:#14213a;--bg:#f3f5f9;--surface:#fff;--line:#d9dfea;--muted:#5d6b84;--accent:#f0821e;--blue:#2a7fd4;--warn-bg:#fdeedd}
+@media (prefers-color-scheme: dark){:root{--ink:#eef2f8;--bg:#0f1729;--surface:#1b2436;--line:#33405a;--muted:#a9b4c8;--warn-bg:#3a2a17}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Commissioner",Carlito,system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:#14213a;color:#fff;padding:12px 16px}
+@media (max-width:520px){.brand{min-width:0;flex:1 1 100%}.btn{flex:1;justify-content:center}}
+.hwrap{max-width:860px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:200px;color:#fff;text-decoration:none}
+.brand img{width:38px;height:38px}
+.brand b{font:800 22px "Fira Sans Extra Condensed",system-ui,sans-serif;letter-spacing:.01em;text-transform:uppercase}
+.brand b span{color:#f0821e}
+.brand small{display:block;font-size:12px;opacity:.75;font-weight:400;text-transform:none}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:10px;font-weight:600;font-size:14px;text-decoration:none;border:1px solid rgba(255,255,255,.3);color:#fff}
+.btn.primary{background:#f0821e;border-color:#f0821e}
+main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 8px;margin:0 0 16px}
+h2{font:800 22px "Fira Sans Extra Condensed",system-ui,sans-serif;text-transform:uppercase;margin:4px 0 8px;letter-spacing:.01em}
+h3{font-size:17px;color:var(--blue);margin:16px 0 6px}
+p{margin:8px 0} ul,ol{margin:6px 0 10px;padding-left:22px} li{margin:4px 0}
+img{max-width:100%;height:auto}
+.pair{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin:12px 0}
+.pair img{width:min(260px,100%);border:1px solid var(--line);border-radius:12px}
+.side{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin:12px 0}
+.side img{width:min(260px,100%);border:1px solid var(--line);border-radius:12px;display:block}
+.side img.wide{width:min(340px,100%)}
+.side>p:first-child{flex:none;margin:0;width:min(260px,100%)}
+.side>p:first-child:has(img.wide){width:min(340px,100%)}
+a{overflow-wrap:anywhere}
+.side>div{flex:1 1 260px;min-width:0}
+img.strip{display:block;width:min(360px,100%);margin:10px auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:15px;margin:8px 0}
+th{background:#14213a;color:#fff;text-align:left;padding:8px 10px}
+td{border-bottom:1px solid var(--line);padding:8px 10px;vertical-align:top}
+.note{color:var(--muted);font-style:italic;font-size:13px}
+.lead{font-size:17px}
+.box{background:#fdeedd;border-left:4px solid #f0821e;border-radius:8px;padding:2px 14px;margin:10px 0;color:#14213a}
+img.icon{width:64px;display:block;margin:8px 0}
+
+
+.apps{display:grid;gap:10px;margin:10px 0}
+.app{display:flex;gap:14px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:inherit;background:var(--bg)}
+.app.here{border-color:var(--accent)}
+.app img{width:56px;height:56px;flex:none;border-radius:12px}
+.app b{display:block;font-size:17px}
+.app small{display:block;color:var(--muted);font-size:14px}
+.app em{display:block;font-style:normal;font-size:12.5px;color:var(--blue);overflow-wrap:anywhere}
+.chipc{display:inline-block;padding:0 7px;border-radius:5px;font:600 13px ui-monospace,Menlo,monospace;color:#fff}.chipc.o{background:#f0821e}.chipc.k{background:#1b1f27}
+kbd{font:600 13px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:5px;padding:0 5px;background:var(--bg)}@media print{header .btn{display:none}.card{break-inside:avoid;page-break-inside:avoid}.side img{width:210px}.side>p:first-child{width:210px}h2{break-after:avoid}}
+</style></head>
+<body>
+<header><div class="hwrap">
+  <a class="brand" href="../"><img src="../icons/icon-192.png" alt=""><span><b>V.C. <span>Tips</span></b><small>Οδηγίες χρήσης</small></span></a>
+  <a class="btn" href="V-C-Tips-Odigies.pdf" download>⬇ PDF</a>
+  <a class="btn primary" href="../">← Στο V.C. Tips</a>
+</div></header>
+<main><section class="card lead"><p>Το <strong>V.C. Tips</strong> είναι ο οδηγός στησίματος του Video Check: τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο, χρήσιμα tips και τα γήπεδα με οδηγίες Google Maps.</p>
+<p><strong>Σύνδεσμος:</strong> <a href="https://tsimpinosbv.github.io/vctips/">https://tsimpinosbv.github.io/vctips/</a></p>
+<div class="box"><p>🔑 Μπαίνετε με τον <strong>ίδιο λογαριασμό</strong> που έχετε στο Check Mate. Η εφαρμογή δεν φτιάχνει νέο λογαριασμό και δεν αλλάζει τίποτα στο Check Mate.</p></div>
+</section><section class="card"><h2>Βήμα 1 · Είσοδος</h2>
+<div class="side">
+<p><img src="img/v01-eisodos.png" loading="lazy" alt=""></p>
+<div>
+<ul>
+<li>Πατήστε <strong>Συνέχεια με Google</strong>, ή γράψτε το <strong>email</strong> και τον <strong>κωδικό</strong> του Check Mate και πατήστε <strong>Είσοδος</strong>.</li>
+<li>Αν δεν θυμάστε τον κωδικό: <strong>Ξέχασα τον κωδικό</strong> → email → <strong>Αποστολή συνδέσμου</strong>.</li>
+<li>Δεν έχετε λογαριασμό; Κάντε πρώτα εγγραφή στο <a href="https://tsimpinosbv.github.io/checkmate/">Check Mate</a>.</li>
+</ul>
+<p>Μένετε συνδεδεμένοι. Την επόμενη φορά η εφαρμογή ανοίγει κατευθείαν.</p>
+</div>
+</div>
+</section><section class="card"><h2>Βήμα 2 · Εγκατάσταση στο κινητό</h2>
+<p><img src="../icons/icon-192.png" class="icon" alt=""></p>
+<ul>
+<li><strong>Android (Chrome):</strong> πατήστε <strong>📲 Εγκατάσταση</strong> κάτω δεξιά, ή Chrome ⋮ → <strong>Εγκατάσταση εφαρμογής</strong> (ή «Προσθήκη στην αρχική οθόνη»).</li>
+<li><strong>iPhone / iPad:</strong> ανοίξτε τον σύνδεσμο στο <strong>Safari</strong> → <strong>Κοινοποίηση</strong> (τετράγωνο με βέλος ↑) → <strong>Προσθήκη στην οικία</strong> → <strong>Προσθήκη</strong>. Από Chrome ή από τα μηνύματα δεν εμφανίζεται αυτή η επιλογή.</li>
+<li><strong>Υπολογιστής:</strong> Chrome: εικονίδιο εγκατάστασης δεξιά στη γραμμή διευθύνσεων. Edge: ⋯ → Εφαρμογές → <strong>Εγκατάσταση αυτής της τοποθεσίας ως εφαρμογής</strong>.</li>
+</ul>
+<p>Το V.C. Tips εγκαθίσταται <strong>χωριστά</strong> από το Check Mate και το Ημερολόγιο, με το δικό του σκούρο εικονίδιο.</p>
+</section><section class="card"><h2>Στήσιμο</h2>
+<div class="side">
+<p><img src="img/v02-stisimo.png" loading="lazy" alt=""></p>
+<div>
+<p>Τα βήματα με τη σειρά, αριθμημένα (π.χ. «Βήμα 3 / 21»).</p>
+<ul>
+<li>Οι κάμερες έχουν το <strong>χρώμα</strong> της διάταξης, π.χ. <span class="chipc k">1, 8, 4, 5</span> ή <span class="chipc o">Y, T, R</span>.</li>
+<li>Σε κάποια βήματα η φωτογραφία είναι <strong>μεγάλη</strong> πάνω από τον τίτλο. Στα άλλα υπάρχουν <strong>μικρογραφίες</strong> κάτω από το κείμενο.</li>
+<li>Πατήστε οποιαδήποτε φωτογραφία για να ανοίξει σε πλήρη οθόνη.</li>
+</ul>
+</div>
+</div>
+</section><section class="card"><h2>Φωτογραφίες σε πλήρη οθόνη</h2>
+<div class="side">
+<p><img src="img/v03-megethynsi.png" loading="lazy" alt=""></p>
+<div>
+<ul>
+<li><strong>Πατήστε την εικόνα</strong> για να τη δείτε στο πραγματικό της μέγεθος. Σύρετε για να δείτε λεπτομέρειες. Πατήστε ξανά για να επιστρέψει.</li>
+<li>Αν το βήμα έχει πολλές φωτογραφίες, <strong>σύρετε</strong> αριστερά-δεξιά ή πατήστε <strong>‹ ›</strong>. Πάνω αριστερά φαίνεται σε ποια είστε (π.χ. «2 / 3»).</li>
+<li>Κλείνει με <strong>Κλείσιμο ✕</strong> ή πατώντας έξω από την εικόνα.</li>
+</ul>
+</div>
+</div>
+</section><section class="card"><h2>Tips</h2>
+<div class="side">
+<p><img src="img/v04-tips.png" loading="lazy" alt=""></p>
+<div>
+<p>Μικρές λεπτομέρειες που γλιτώνουν προβλήματα, χωρισμένες σε <strong>κατηγορίες</strong>.</p>
+<ul>
+<li>Πατήστε μια κατηγορία πάνω από τα tips για να δείτε μόνο αυτήν. <strong>Όλα</strong> δείχνει όλα τα tips, ομαδοποιημένα.</li>
+<li>Το κόκκινο <strong>Σημαντικό</strong> ή τα κόκκινα γράμματα σημαίνουν προσοχή.</li>
+</ul>
+</div>
+</div>
+</section><section class="card"><h2>Γήπεδα</h2>
+<div class="side">
+<p><img src="img/v05-gipeda.png" loading="lazy" alt=""></p>
+<div>
+<ul>
+<li>Γράψτε στην <strong>αναζήτηση</strong> αρκτικόλεξο, όνομα ή πόλη, ή διαλέξτε από τη <strong>λίστα</strong>.</li>
+<li>Η κάρτα δείχνει το <strong>αρκτικόλεξο</strong>, το όνομα, τη διεύθυνση και σημειώσεις (πρόσβαση, πάρκινγκ κ.λπ.).</li>
+<li><strong>Οδηγίες Google Maps</strong>: ανοίγει τον χάρτη με διαδρομή μέχρι το γήπεδο.</li>
+<li><strong>Αντιγραφή διεύθυνσης</strong>: για να την επικολλήσετε όπου θέλετε.</li>
+</ul>
+</div>
+</div>
+</section><section class="card"><h2>Χωρίς internet</h2>
+<p>Αν ανοίξετε την εφαρμογή <strong>μία φορά με internet</strong>, μετά λειτουργεί και χωρίς σήμα: ανοίγει κανονικά με ό,τι είχε φορτωθεί, και πάνω εμφανίζεται «Χωρίς σύνδεση». Το κουμπί Google Maps θέλει internet. Αν πατήσετε Αποσύνδεση, για να ξαναμπείτε θα χρειαστείτε σύνδεση.</p>
+</section><section class="card" id="diaxeiristes"><h2>Για διαχειριστές · Επεξεργασία</h2>
+<p>Αλλαγές κάνουν <strong>μόνο οι διαχειριστές του Check Mate</strong>, με «Συνέχεια με Google». Στο κάτω μέρος κάθε σελίδας φαίνεται «Συνδεδεμένος: … · διαχειριστής».</p>
+<div class="side">
+<p><img src="img/v06-epexergasia.png" loading="lazy" alt=""></p>
+<div>
+<p>Πατήστε <strong>✎ Επεξεργασία</strong> πάνω δεξιά. Κάτω από κάθε βήμα, tip ή γήπεδο εμφανίζονται:</p>
+<ul>
+<li><strong>✎ Επεξεργασία</strong>: αλλαγή κειμένου και φωτογραφιών,</li>
+<li><strong>↑ ↓</strong>: σειρά (στα tips, μέσα στην κατηγορία τους),</li>
+<li><strong>Διαγραφή</strong>: πατήστε δύο φορές για επιβεβαίωση.</li>
+</ul>
+<p>Στο τέλος κάθε καρτέλας: <strong>+ Νέο βήμα / tip / γήπεδο</strong>. Όταν τελειώσετε, πατήστε <strong>Τέλος</strong>.</p>
+</div>
+</div>
+</section><section class="card"><h2>Κείμενο, μορφοποίηση και φωτογραφίες</h2>
+<div class="side">
+<p><img src="img/v07-forma.png" loading="lazy" alt=""></p>
+<div>
+<p>Πάνω από το κείμενο υπάρχει γραμμή μορφοποίησης. Μαρκάρετε λέξεις ή γραμμές και πατήστε:</p>
+<ul>
+<li><strong>B</strong> έντονα, <em>I</em> πλάγια, κίτρινη <strong>επισήμανση</strong>, <strong>κόκκινα</strong> γράμματα,</li>
+<li>τα <strong>χρωματιστά τετράγωνα</strong> για ετικέτα στο χρώμα της κάμερας,</li>
+<li><strong>•</strong> κουκκίδες, <strong>1.</strong> αρίθμηση, <strong>Τ</strong> υπότιτλο.</li>
+</ul>
+<p>Πατήστε <strong>Προεπισκόπηση</strong> για να δείτε πώς θα εμφανιστεί.</p>
+<p><strong>Φωτογραφίες:</strong> έως 4 σε κάθε βήμα ή tip, με <strong>+ Προσθήκη φωτογραφιών</strong> (αν το κινητό δεν αφήνει πολλές μαζί, μία-μία). <strong>‹</strong> αλλάζει τη σειρά, <strong>✕</strong> αφαιρεί. Τσεκάρετε <strong>«Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος»</strong> για να εμφανίζεται μεγάλη, όπως στο βήμα 1.</p>
+</div>
+</div>
+</section><section class="card"><h2>Κατηγορίες tips και γήπεδα</h2>
+<div class="side">
+<p><img src="img/v08-katigories.png" loading="lazy" alt=""></p>
+<div>
+<ul>
+<li><strong>Νέα κατηγορία:</strong> σε ένα tip, Κατηγορία → <strong>+ Νέα κατηγορία…</strong> και γράψτε το όνομα.</li>
+<li>Στο κουτί <strong>Κατηγορίες</strong> (καρτέλα Tips, με ✎ ανοιχτό): <strong>↑ ↓</strong> σειρά, <strong>✓</strong> νέο όνομα, <strong>✕</strong> αφαίρεση (τα tips μένουν χωρίς κατηγορία).</li>
+<li><strong>Γήπεδα:</strong> + Νέο γήπεδο, ή <strong>Εισαγωγή λίστας γηπέδων</strong> με μία γραμμή ανά γήπεδο: <kbd>Αρκτικόλεξο ; Όνομα ; Πόλη ; Διεύθυνση</kbd> (ή στήλες από Excel).</li>
+<li><strong>Αντιγραφή όλων των κειμένων</strong> (στο τέλος της σελίδας): όλα τα βήματα, tips και σημειώσεις σε απλό κείμενο, π.χ. για έλεγχο.</li>
+</ul>
+</div>
+</div>
+</section>
+<section class="card" id="efarmoges"><h2>Οι εφαρμογές μας</h2>
+<p>Τρεις ξεχωριστές εφαρμογές, με τον ίδιο λογαριασμό. Κάθε μία εγκαθίσταται χωριστά, με το δικό της εικονίδιο.</p>
+<div class="apps"><a class="app" href="https://tsimpinosbv.github.io/checkmate/"><img src="img/app-checkmate.png" alt="" width="56" height="56"><span><b>Check Mate</b><small>Αναθέσεις αγώνων και πληρωμές.</small><em>tsimpinosbv.github.io/checkmate/</em></span></a><a class="app" href="https://tsimpinosbv.github.io/checkmate/imerologio.html"><img src="img/app-imerologio.png" alt="" width="56" height="56"><span><b>Ημερολόγιο</b><small>Το προσωπικό σας αρχείο αγώνων και πληρωμών.</small><em>tsimpinosbv.github.io/checkmate/imerologio.html</em></span></a><a class="app here" href="https://tsimpinosbv.github.io/vctips/"><img src="img/app-vctips.png" alt="" width="56" height="56"><span><b>V.C. Tips</b><small>Οδηγός στησίματος, tips και γήπεδα.</small><em>tsimpinosbv.github.io/vctips/</em></span></a></div>
+<p>Όλες μαζί, σε μία σελίδα: <strong>Check Mate Suite</strong> · <a href="https://tsimpinosbv.github.io/">tsimpinosbv.github.io</a></p>
+<p class="note">Όταν στέλνετε έναν από αυτούς τους συνδέσμους σε Viber, WhatsApp ή email, εμφανίζεται κάρτα με το εικονίδιο και το όνομα της εφαρμογής.</p>
+</section>
+<section class="card"><h2>Συχνά προβλήματα</h2>
+<table>
+<thead><tr><th>Πρόβλημα</th><th>Τι κάνω</th></tr></thead>
+<tbody>
+<tr><td>«Δεν υπάρχει πρόσβαση στο περιεχόμενο»</td><td>Ελέγξτε ότι μπήκατε με τον λογαριασμό του Check Mate. Αν συνεχίζει, ενημερώστε τον διαχειριστή.</td></tr>
+<tr><td>Δεν βλέπω τις τελευταίες αλλαγές</td><td>Κλείστε την εφαρμογή τελείως και ανοίξτε τη ξανά, με internet.</td></tr>
+<tr><td>Στο iPhone δεν βρίσκω «Προσθήκη στην οικία»</td><td>Ανοίξτε τον σύνδεσμο στο <strong>Safari</strong>, όχι σε Chrome ή μέσα από Viber.</td></tr>
+<tr><td>Είμαι διαχειριστής αλλά δεν βλέπω ✎</td><td>Αποσύνδεση και ξανά είσοδος με <strong>Συνέχεια με Google</strong>.</td></tr>
+<tr><td>Θέλω να βγω</td><td>Κουμπί <strong>Αποσύνδεση</strong> κάτω δεξιά.</td></tr>
+<tr><td>Οτιδήποτε άλλο</td><td>Τηλεφωνήστε στον κ. Νικόλα Παπαχατζή ή στον κ. Μιχάλη Τσιντομηνά.</td></tr>
+</tbody>
+</table>
+<p class="note">Οι εικόνες είναι παραδείγματα.</p></section></main>
+</body></html>

@@ -289,7 +289,7 @@ function render(){
     ${navigator.onLine===false?`<div class="g-offline" role="status">Χωρίς σύνδεση · βλέπεις ό,τι είχε φορτωθεί την τελευταία φορά${edit?". Οι αλλαγές θα αποθηκευτούν μόλις επανέλθει η σύνδεση.":""}</div>`:""}
     <main class="g-main g-wrap">${tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues()}
       ${edit?`<div class="g-export"><button class="g-btn ghost" data-act="exporttext">Αντιγραφή όλων των κειμένων</button><p class="g-lede" style="margin:0;font-size:13px">Βήματα, tips και σημειώσεις γηπέδων σε απλό κείμενο, π.χ. για έλεγχο διατύπωσης.</p></div>`:""}
-      ${me&&me.email?`<p class="g-who">Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}</p>`:""}</main>
+      <p class="g-who"><a href="help/${isAdmin?"#diaxeiristes":""}">📖 Οδηγίες χρήσης</a>${me&&me.email?`<br>Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}`:""}</p></main>
     <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k?'aria-current="page"':""}>${ICON[k]}${l}</a>`).join("")}</div></nav>
     ${viewSheet()}${viewZoom()}`;
   window.scrollTo(0, sy);

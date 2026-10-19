@@ -134,7 +134,7 @@
       </form>
       <p class="hint" style="margin-top:14px">Δεν έχεις λογαριασμό; Κάνε εγγραφή στο Check Mate και μπες εδώ με τα ίδια στοιχεία.</p>`;
     }
-    rootEl().innerHTML = `<div id="cm-auth">${head}${body}</div>`;
+    rootEl().innerHTML = `<div id="cm-auth">${head}${body}<a class="help" href="help/">📖 Οδηγίες χρήσης</a></div>`;
     const box = document.getElementById("cm-auth");
     box.querySelectorAll("[data-view]").forEach(x => x.onclick = () => showAuth(x.dataset.view, null, (document.getElementById("cm-email")||{}).value||email));
     const g = document.getElementById("cm-google"); if(g) g.onclick = google;
