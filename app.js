@@ -38,8 +38,28 @@ const TABS = [["setup","Στήσιμο"],["tips","Tips"],["venues","Γήπεδα
 
 let db=null, me=null, isAdmin=false, edit=false;
 let steps=[], tips=[], venues=[], CATORDER=[], IMGS={steps:{}, tips:{}}, denied={}, ready={steps:false,tips:false,venues:false};
-let tab = (location.hash||"").slice(1); if(!TABS.some(t=>t[0]===tab)) tab = "setup";
-let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;   // zoom: {k, i, idx} — which item's photos are full screen, and which one
+/* #setup · #tips · #venues · #venues?v=<venue name> (link from a Check Mate assignment opens that venue) */
+function parseHash(){
+  const h = decodeURIComponent((location.hash||"").slice(1)), [t, qs] = h.split("?");
+  const v = qs && new URLSearchParams(qs).get("v");
+  return {t: TABS.some(x=>x[0]===t) ? t : null, v: v || null};
+}
+let tab = parseHash().t || "setup", wantVenue = parseHash().v;
+let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;
+let q = "", searchOpen = false;            // search across steps, tips and venues
+let nextMatch = null;                      // the user's next Check Mate assignment (mine/<uid>/items)
+const lsGet = (k, d) => { try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } };
+const lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
+/* match-day checklist: ticked steps, kept on this device for today only */
+const CHK = () => "vct-check-" + today();
+let checked = new Set(lsGet(CHK(), [])), chkKey = CHK();
+/* «Νέο»: an item changed (updatedAt) after this device last saw it; content from before the first visit is not flagged */
+try{ Object.keys(localStorage).filter(k=>k.startsWith("vct-check-") && k!==CHK()).forEach(k=>localStorage.removeItem(k)); }catch{}
+const FIRST = (() => { let f = lsGet("vct-first", 0); if(!f){ f = Date.now(); lsSet("vct-first", f); } return f; })();
+let seen = lsGet("vct-seen", {}), shownNew = new Set();
+const isNew = it => !!it.updatedAt && it.updatedAt > FIRST && it.updatedAt > (seen[it.id] || 0);
+function markSeen(){ if(!shownNew.size) return; const now = Date.now(); shownNew.forEach(id => { seen[id] = now; }); shownNew.clear(); lsSet("vct-seen", seen); }
+const newBadge = it => { if(!isNew(it)) return ""; shownNew.add(it.id); return `<span class="g-new">Νέο</span>`; };   // zoom: {k, i, idx} — which item's photos are full screen, and which one
 try{ venueId = localStorage.getItem("vct-venue"); }catch{}
 
 /* Photos: up to MAXPH per step or tip. Each photo is its own document in the same collection ({imgOf: parentId, data}),
@@ -155,6 +175,35 @@ function applyFmt(f, id){
   const pv = $("gp-"+id); if(pv) pv.innerHTML = fmt(nv);
 }
 
+/* the venue of a Check Mate assignment, matched by acronym or name */
+function venueFor(i){
+  const keys = [i.venue, i.venueFull].filter(Boolean).map(norm);
+  return venues.find(v => keys.includes(norm(v.code)) || keys.includes(norm(v.name))) || null;
+}
+const DAYS = ["Κυρ","Δευ","Τρι","Τετ","Πεμ","Παρ","Σαβ"];
+function viewNext(){
+  const i = nextMatch; if(!i) return "";
+  const d = new Date(i.date+"T12:00"), days = Math.round((d - new Date(today()+"T12:00"))/864e5);
+  const when = days===0 ? "Σήμερα" : days===1 ? "Αύριο" : `σε ${days} μέρες`;
+  const v = venueFor(i);
+  return `<section class="g-next" aria-label="Επόμενος αγώνας"><div class="k">Επόμενος αγώνας · ${when}</div>
+    <div class="t">${esc(DAYS[d.getDay()])} ${fmtDate(i.date).slice(0,5)}${i.time?" · "+esc(i.time):""} · <b>${esc(i.home||"")}${i.away?" – "+esc(i.away):""}</b></div>
+    ${i.venue?`<div class="v">📍 ${esc(i.venue)}${i.venueFull&&norm(i.venueFull)!==norm(i.venue)?" · "+esc(i.venueFull):""}</div>`:""}
+    <div class="g-row">${v?`<button class="g-btn" data-act="gonext">${ICON.venues} Το γήπεδο</button>`:""}${tab!=="setup"?`<button class="g-btn ghost" data-act="tab" data-t="setup">Στήσιμο</button>`:""}</div></section>`;
+}
+/* search: one box for steps, tips and venues */
+function viewSearch(){
+  const f = norm(q), hit = x => norm(Object.values(x).filter(v=>typeof v==="string" && !/^data:/.test(v)).join(" ")).includes(f);
+  const snip = t => { const s = String(t||"").replace(/[*=!{}#]/g,"").replace(/\s+/g," "); const n = norm(s).indexOf(f); return esc(n<0 ? s.slice(0,110) : (n>40?"…":"")+s.slice(Math.max(0,n-40), n+90)); };
+  const res = [
+    ...steps.map((x,n)=>({x,n})).filter(({x})=>hit(x)).map(({x,n})=>({k:"steps", id:x.id, tag:`Βήμα ${n+1}`, title:x.title, sub:snip(x.text)})),
+    ...tips.filter(hit).map(x=>({k:"tips", id:x.id, tag:x.cat||"Tip", title:x.title, sub:snip(x.text)})),
+    ...venues.filter(hit).map(x=>({k:"venues", id:x.id, tag:x.code||"Γήπεδο", title:x.name, sub:snip([x.city,x.address,x.notes].filter(Boolean).join(" · "))}))];
+  return `<h1 class="g-h1">Αναζήτηση</h1><p class="g-lede">${res.length} αποτελέσματα για «${esc(q)}» σε βήματα, tips και γήπεδα.</p>
+  <div class="g-list">${res.length ? res.map(r=>`<button class="g-hit" data-act="goto" data-k="${r.k}" data-id="${r.id}"><span class="g-tag">${esc(r.tag)}</span><b>${esc(r.title||"")}</b>${r.sub?`<span>${r.sub}</span>`:""}</button>`).join("")
+    : emptyBox("Δεν βρέθηκε τίποτα", "Δοκίμασε άλλη λέξη, π.χ. «καλώδιο», «μπαταρία» ή το αρκτικόλεξο ενός γηπέδου.")}</div>`;
+}
+
 function emptyBox(title, sub, extra=""){ return `<div class="g-empty"><strong>${title}</strong><div>${sub}</div>${extra}</div>`; }
 
 function viewSetup(){
@@ -163,10 +212,14 @@ function viewSetup(){
   const empty = denied.steps && !n ? deniedBox() : isAdmin
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
+  const done = steps.filter(s=>checked.has(s.id)).length;
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
-  <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step">
+  ${n && !edit?`<div class="g-prog" role="status"><div><b>Λίστα ελέγχου σήμερα: ${done} / ${n} έτοιμα</b><span>Πάτα «Έγινε» σε κάθε βήμα. Μηδενίζεται μόνη της την επόμενη μέρα.</span></div>
+    <div class="bar"><i style="width:${n?Math.round(done/n*100):0}%"></i></div>${done?`<button class="g-btn ghost" data-act="chkreset">Από την αρχή</button>`:""}</div>`:""}
+  <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step${checked.has(s.id)?" done":""}" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
-    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}${tools("steps",i,n)}</div></article>`).join("") : empty}
+    <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}${newBadge(s)}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}
+    ${edit?"":`<button class="g-done" data-act="chk" data-id="${s.id}" aria-pressed="${checked.has(s.id)}">${checked.has(s.id)?"✓ Έγινε":"Έγινε"}</button>`}${tools("steps",i,n)}</div></article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
@@ -214,7 +267,7 @@ function viewTips(){
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
   ${edit?viewCats():""}
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
-  <div class="g-list">${list.length ? list.map(([t,i],pos)=>`<article class="g-tip">${t.cat?`<span><span class="g-tag">${esc(t.cat)}</span></span>`:""}<h3>${esc(t.title)}</h3>${isBig(t,"tips",i) ? bigPhoto(t,"tips",i) : ""}<div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i,isBig(t,"tips",i)?1:0)}${tools("tips",i,tips.length,nb(pos,-1),nb(pos,1))}</article>`).join("") : empty}
+  <div class="g-list">${list.length ? list.map(([t,i],pos)=>`<article class="g-tip" id="it-${t.id}">${t.cat||isNew(t)?`<span>${t.cat?`<span class="g-tag">${esc(t.cat)}</span>`:""}${newBadge(t)}</span>`:""}<h3>${esc(t.title)}</h3>${isBig(t,"tips",i) ? bigPhoto(t,"tips",i) : ""}<div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i,isBig(t,"tips",i)?1:0)}${tools("tips",i,tips.length,nb(pos,-1),nb(pos,1))}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
 }
 
@@ -234,12 +287,12 @@ function viewVenues(){
     <div class="g-field"><label for="gsel">Γήπεδο (${shown.length})</label><select class="g-in" id="gsel"><option value="">— Επίλεξε γήπεδο —</option>
       ${shown.map(v=>`<option value="${v.id}" ${v.id===venueId?"selected":""}>${v.code?esc(v.code)+" — ":""}${esc(v.name)}</option>`).join("")}</select></div>
   </div>`:""}
-  ${cur?`<article class="g-court"><div class="hd">${cur.code && norm(cur.code)!==norm(cur.name)?`<span class="g-code">${esc(cur.code)}</span>`:""}<div><h2>${esc(cur.name)}</h2>${cur.city?`<p>${esc(cur.city)}</p>`:""}</div></div>
+  ${cur?`<article class="g-court"><div class="hd">${cur.code && norm(cur.code)!==norm(cur.name)?`<span class="g-code">${esc(cur.code)}</span>`:""}<div><h2>${esc(cur.name)}${newBadge(cur)}</h2>${cur.city?`<p>${esc(cur.city)}</p>`:""}</div></div>
     <div class="bd">${cur.address||cur.notes?`<dl class="g-kv">${cur.address?`<dt>Διεύθυνση</dt><dd>${esc(cur.address)}</dd>`:""}${cur.notes?`<dt>Σημειώσεις</dt><dd class="g-rich">${fmt(cur.notes)}</dd>`:""}</dl>`:""}
     <div class="g-row"><a class="g-btn" href="${esc(mapsUrl(cur))}" target="_blank" rel="noopener">${ICON.venues} Οδηγίες Google Maps</a>${cur.address?`<button class="g-btn ghost" data-act="copy">Αντιγραφή διεύθυνσης</button>`:""}</div>
     ${tools("venues",ci,venues.length)}</div></article>`
    : venues.length ? emptyBox("Επίλεξε γήπεδο από τη λίστα","") : denied.venues ? deniedBox() : emptyAll}
-  ${venues.length?`<div class="g-mini">${shown.map(v=>`<button data-act="pick" data-id="${v.id}" aria-current="${v.id===venueId}"><span class="c ${v.code?"":"none"}">${esc(v.code||"—")}</span><span class="n">${esc(v.name)}</span></button>`).join("")}</div>`:""}
+  ${venues.length?`<div class="g-mini">${shown.map(v=>`<button data-act="pick" data-id="${v.id}" aria-current="${v.id===venueId}"><span class="c ${v.code?"":"none"}">${esc(v.code||"—")}</span><span class="n">${esc(v.name)}${isNew(v)?' <span class="g-new">Νέο</span>':""}</span></button>`).join("")}</div>`:""}
   ${edit?`<div class="g-list" style="margin-top:14px"><button class="g-add" data-act="new" data-k="venues">+ Νέο γήπεδο</button><button class="g-add" data-act="import">Εισαγωγή λίστας γηπέδων</button></div>`:""}`;
 }
 
@@ -281,19 +334,21 @@ function viewSheet(){
 }
 
 function render(){
-  const sy = window.scrollY, gq = document.activeElement && document.activeElement.id==="gq" ? document.activeElement.selectionStart : null;
+  const ae = document.activeElement, fid = ae && (ae.id==="gq"||ae.id==="gsearch") ? ae.id : null, gq = fid ? ae.selectionStart : null;
+  const sy = window.scrollY;
   $("gapp").innerHTML = `<header class="g-top"><div class="g-wrap">
       <div class="g-brand"><div><b>V.C. <span>Tips</span></b><small>Οδηγός στησίματος</small></div></div><span class="g-sp"></span>
+      <button class="g-pill g-sbtn" data-act="search" aria-pressed="${searchOpen}" aria-label="Αναζήτηση" title="Αναζήτηση"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
       ${isAdmin?`<button class="g-pill" data-act="toggle" aria-pressed="${edit}">${edit?"Τέλος":"✎ Επεξεργασία"}</button>`:""}
-</div></header>
+</div>${searchOpen?`<div class="g-wrap g-sline"><input class="g-in" id="gsearch" type="search" placeholder="Αναζήτηση σε βήματα, tips και γήπεδα" value="${esc(q)}" autocomplete="off" enterkeyhint="search"></div>`:""}</header>
     ${navigator.onLine===false?`<div class="g-offline" role="status">Χωρίς σύνδεση · βλέπεις ό,τι είχε φορτωθεί την τελευταία φορά${edit?". Οι αλλαγές θα αποθηκευτούν μόλις επανέλθει η σύνδεση.":""}</div>`:""}
-    <main class="g-main g-wrap">${tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues()}
+    <main class="g-main g-wrap">${norm(q) ? viewSearch() : (tab==="setup"&&!edit?viewNext():"") + (tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues())}
       ${edit?`<div class="g-export"><button class="g-btn ghost" data-act="exporttext">Αντιγραφή όλων των κειμένων</button><p class="g-lede" style="margin:0;font-size:13px">Βήματα, tips και σημειώσεις γηπέδων σε απλό κείμενο, π.χ. για έλεγχο διατύπωσης.</p></div>`:""}
       <p class="g-who"><a href="help/${isAdmin?"#diaxeiristes":""}">📖 Οδηγίες χρήσης</a>${me&&me.email?`<br>Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}`:""}</p></main>
-    <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k?'aria-current="page"':""}>${ICON[k]}${l}</a>`).join("")}</div></nav>
+    <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k&&!norm(q)?'aria-current="page"':""}>${ICON[k]}${l}${tab!==k&&LIST(k==="setup"?"steps":k).some(isNew)?'<i class="g-dot" aria-label="νέο"></i>':""}</a>`).join("")}</div></nav>
     ${viewSheet()}${viewZoom()}`;
   window.scrollTo(0, sy);
-  if(gq!==null){ const q=$("gq"); if(q){ q.focus(); try{ q.setSelectionRange(gq,gq); }catch{} } }
+  if(fid){ const el=$(fid); if(el){ el.focus(); try{ el.setSelectionRange(gq,gq); }catch{} } }
 }
 
 function resizeImage(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>{ const im=new Image(); im.onload=()=>{
@@ -306,6 +361,13 @@ function readSheet(){ if(!sheet||!FORMS[sheet.kind]) return; for(const [k,,t] of
   if(t==="cat"){ const sel=$("gf-cat"), nw=$("gf-catnew"); if(sel) sheet.item.cat = sel.value==="__new" ? (nw?nw.value.trim():"") : sel.value; continue; }
   const f=$("gf-"+k); if(f) sheet.item[k]=f.value.trim(); } }
 const fail = () => toast("Η αποθήκευση απέτυχε. Έλεγξε τη σύνδεση και δοκίμασε ξανά.");
+/* #venues?v=<name>: open that venue once the list is loaded */
+function openWanted(){
+  if(!ready.venues || !wantVenue) return;
+  const k = norm(wantVenue), v = venues.find(x => norm(x.code)===k || norm(x.name)===k) || venues.find(x => norm(x.name).includes(k));
+  wantVenue = null; tab = "venues"; history.replaceState(null,"",location.pathname+"#venues");
+  if(v) pickVenue(v.id); else { filter = ""; render(); toast("Το γήπεδο δεν βρέθηκε στη λίστα. Ψάξ' το παρακάτω."); }
+}
 function pickVenue(id){ venueId=id||null; try{ localStorage.setItem("vct-venue", venueId||""); }catch{} render(); }
 
 async function onClick(ev){
@@ -313,7 +375,17 @@ async function onClick(ev){
   const a = el.dataset.act, k = el.dataset.k, i = +el.dataset.i;
   if(a==="closebg" && ev.target!==el) return;
   switch(a){
-    case "tab": ev.preventDefault(); tab=el.dataset.t; history.replaceState(null,"",location.pathname+"#"+tab); render(); window.scrollTo(0,0); break;
+    case "tab": ev.preventDefault(); markSeen(); tab=el.dataset.t; q=""; searchOpen=false; history.replaceState(null,"",location.pathname+"#"+tab); render(); window.scrollTo(0,0); break;
+    case "search": searchOpen=!searchOpen; if(!searchOpen) q=""; render(); if(searchOpen){ const s=$("gsearch"); if(s) s.focus(); } break;
+    case "goto": { const kk=el.dataset.k, id=el.dataset.id; markSeen(); q=""; searchOpen=false; tab=kk; history.replaceState(null,"",location.pathname+"#"+tab);
+      if(kk==="venues"){ pickVenue(id); window.scrollTo(0,0); break; }
+      if(kk==="tips") tipCat="Όλα";
+      render(); const t=$("it-"+id); if(t){ t.scrollIntoView({block:"start"}); window.scrollBy(0,-80); t.classList.add("g-flash"); setTimeout(()=>t.classList.remove("g-flash"),1800); }
+      break; }
+    case "gonext": { const v = nextMatch && venueFor(nextMatch); if(!v) break; markSeen(); tab="venues"; history.replaceState(null,"",location.pathname+"#venues"); pickVenue(v.id); window.scrollTo(0,0); break; }
+    case "chk": { const id=el.dataset.id; if(CHK()!==chkKey){ chkKey=CHK(); checked=new Set(); } checked.has(id)?checked.delete(id):checked.add(id); lsSet(CHK(), [...checked]);
+      if(steps.length && steps.every(s=>checked.has(s.id))) toast("Όλα τα βήματα έτοιμα. Καλό αγώνα!"); render(); break; }
+    case "chkreset": checked=new Set(); lsSet(CHK(), []); render(); window.scrollTo({top:0,behavior:"smooth"}); break;
     case "toggle": edit=!edit; render(); break;
     case "cat": tipCat=el.dataset.c; render(); break;
     case "fmt": applyFmt(el.dataset.f, el.dataset.t); break;
@@ -359,7 +431,7 @@ async function onClick(ev){
       readSheet(); const it=sheet.item, kind=sheet.kind;
       if(kind==="tips" && sheet.newCat && !it.cat){ toast("Γράψε το όνομα της νέας κατηγορίας"); break; }
       if(!(it.title||it.name)){ toast(kind==="venues"?"Συμπλήρωσε το όνομα του γηπέδου":"Συμπλήρωσε τίτλο"); break; }
-      const data={...it}; delete data.id;
+      const data={...it, updatedAt:Date.now()}; delete data.id;
       el.disabled=true; el.textContent="Αποθήκευση…";
       try{
         const col=db.collection(COL(kind)), ref = sheet.id ? col.doc(sheet.id) : col.doc();
@@ -441,6 +513,7 @@ async function onClick(ev){
     }
   });
   g.addEventListener("input", ev => { if(ev.target.id==="gq"){ filter=ev.target.value; render(); }
+    else if(ev.target.id==="gsearch"){ q=ev.target.value; render(); }
     else if(/^gf-(text|notes)$/.test(ev.target.id)){ const pv=$("gp-"+ev.target.id.slice(3)); if(pv) pv.innerHTML=fmt(ev.target.value); } });
   addEventListener("online", render); addEventListener("offline", render);
   addEventListener("keydown", e => { if(!zoom) return; if(e.key==="Escape"){ zoom=null; render(); } else if(e.key==="ArrowRight") zoomStep(1); else if(e.key==="ArrowLeft") zoomStep(-1); });
@@ -449,7 +522,9 @@ async function onClick(ev){
   g.addEventListener("touchstart", e => { if(zoom && !e.target.closest(".g-zoom-in.full")){ sx=e.touches[0].clientX; sy0=e.touches[0].clientY; } }, {passive:true});
   g.addEventListener("touchend", e => { if(sx===null) return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy0; sx=null;
     if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5) zoomStep(dx<0?1:-1); }, {passive:true});
-  addEventListener("hashchange", () => { const h=location.hash.slice(1); if(TABS.some(x=>x[0]===h) && h!==tab){ tab=h; render(); } });
+  addEventListener("hashchange", () => { const h=parseHash(); if(h.v){ wantVenue=h.v; tab="venues"; openWanted(); } if(h.t && h.t!==tab){ markSeen(); tab=h.t; render(); } });
+  addEventListener("pagehide", markSeen);
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState==="hidden") markSeen(); });
   render();
   /* photo documents ({imgOf}) live next to the items; split them out */
   const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(d.id==="_cats"){ CATORDER=x.order||[]; return; } if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });
@@ -457,7 +532,13 @@ async function onClick(ev){
   const onDenied = name => err => { console.warn(name, err && err.code); denied[name]=true; ready[name]=true; render(); };
   db.collection("vct_steps").onSnapshot(s=>{ steps=split("steps",s); ready.steps=true; render(); }, onDenied("steps"));
   db.collection("vct_tips").onSnapshot(s=>{ tips=split("tips",s); ready.tips=true; render(); }, onDenied("tips"));
-  db.collection("vct_venues").limit(2000).onSnapshot(s=>{ venues=s.docs.map(d=>({id:d.id,...d.data()})); ready.venues=true; render(); }, onDenied("venues"));
+  db.collection("vct_venues").limit(2000).onSnapshot(s=>{ venues=s.docs.map(d=>({id:d.id,...d.data()})); ready.venues=true; if(wantVenue) openWanted(); else render(); }, onDenied("venues"));
+  /* the user's own Check Mate assignments (read-only): the next one is shown on Στήσιμο */
+  if(me && me.id) db.collection(`mine/${me.id}/items`).limit(500).onSnapshot(s=>{
+    const t = today();
+    nextMatch = s.docs.map(d=>d.data()).filter(i=>i.date && i.date>=t).sort((a,b)=>(a.date+(a.time||"")).localeCompare(b.date+(b.time||"")))[0] || null;
+    render();
+  }, ()=>{});
 })();
 
   })();
