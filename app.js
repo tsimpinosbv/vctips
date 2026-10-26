@@ -187,7 +187,7 @@ function viewNext(){
   const v = venueFor(i);
   return `<section class="g-next" aria-label="Επόμενος αγώνας"><div class="k">Επόμενος αγώνας · ${when}</div>
     <div class="t">${esc(DAYS[d.getDay()])} ${fmtDate(i.date).slice(0,5)}${i.time?" · "+esc(i.time):""} · <b>${esc(i.home||"")}${i.away?" – "+esc(i.away):""}</b></div>
-    ${i.venue?`<div class="v">📍 ${esc(i.venue)}${i.venueFull&&norm(i.venueFull)!==norm(i.venue)?" · "+esc(i.venueFull):""}</div>`:""}
+    ${i.venue?`<div class="v">${ICON.venues.replace("<svg",'<svg class="g-ic"')} ${esc(i.venue)}${i.venueFull&&norm(i.venueFull)!==norm(i.venue)?" · "+esc(i.venueFull):""}</div>`:""}
     <div class="g-row">${v?`<button class="g-btn" data-act="gonext">${ICON.venues} Το γήπεδο</button>`:""}${tab!=="setup"?`<button class="g-btn ghost" data-act="tab" data-t="setup">Στήσιμο</button>`:""}</div></section>`;
 }
 /* search: one box for steps, tips and venues */
@@ -344,7 +344,7 @@ function render(){
     ${navigator.onLine===false?`<div class="g-offline" role="status">Χωρίς σύνδεση · βλέπεις ό,τι είχε φορτωθεί την τελευταία φορά${edit?". Οι αλλαγές θα αποθηκευτούν μόλις επανέλθει η σύνδεση.":""}</div>`:""}
     <main class="g-main g-wrap">${norm(q) ? viewSearch() : (tab==="setup"&&!edit?viewNext():"") + (tab==="setup"?viewSetup():tab==="tips"?viewTips():viewVenues())}
       ${edit?`<div class="g-export"><button class="g-btn ghost" data-act="exporttext">Αντιγραφή όλων των κειμένων</button><p class="g-lede" style="margin:0;font-size:13px">Βήματα, tips και σημειώσεις γηπέδων σε απλό κείμενο, π.χ. για έλεγχο διατύπωσης.</p></div>`:""}
-      <p class="g-who"><a href="help/${isAdmin?"#diaxeiristes":""}">📖 Οδηγίες χρήσης</a>${me&&me.email?`<br>Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}`:""}</p></main>
+      <p class="g-who"><a href="help/${isAdmin?"#diaxeiristes":""}"><svg class="g-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v15c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"/><path d="M12 6v15"/></svg> Οδηγίες χρήσης</a>${me&&me.email?`<br>Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}`:""}</p></main>
     <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k&&!norm(q)?'aria-current="page"':""}>${ICON[k]}${l}${tab!==k&&LIST(k==="setup"?"steps":k).some(isNew)?'<i class="g-dot" aria-label="νέο"></i>':""}</a>`).join("")}</div></nav>
     ${viewSheet()}${viewZoom()}`;
   window.scrollTo(0, sy);
