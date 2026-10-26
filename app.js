@@ -37,7 +37,7 @@ const ICON = {
 const TABS = [["setup","Στήσιμο"],["tips","Tips"],["venues","Γήπεδα"]];
 
 let db=null, me=null, isAdmin=false, edit=false;
-let steps=[], tips=[], venues=[], CATORDER=[], IMGS={steps:{}, tips:{}}, denied={}, ready={steps:false,tips:false,venues:false};
+let steps=[], tips=[], venues=[], CATORDER=[], IMGS={steps:{}, tips:{}, venues:{}}, denied={}, ready={steps:false,tips:false,venues:false};
 /* #setup · #tips · #venues · #venues?v=<venue name> (link from a Check Mate assignment opens that venue) */
 function parseHash(){
   const h = decodeURIComponent((location.hash||"").slice(1)), [t, qs] = h.split("?");
@@ -50,11 +50,8 @@ let q = "", searchOpen = false;            // search across steps, tips and venu
 let nextMatch = null;                      // the user's next Check Mate assignment (mine/<uid>/items)
 const lsGet = (k, d) => { try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } };
 const lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
-/* match-day checklist: ticked steps, kept on this device for today only */
-const CHK = () => "vct-check-" + today();
-let checked = new Set(lsGet(CHK(), [])), chkKey = CHK();
 /* «Νέο»: an item changed (updatedAt) after this device last saw it; content from before the first visit is not flagged */
-try{ Object.keys(localStorage).filter(k=>k.startsWith("vct-check-") && k!==CHK()).forEach(k=>localStorage.removeItem(k)); }catch{}
+try{ Object.keys(localStorage).filter(k=>k.startsWith("vct-check-")).forEach(k=>localStorage.removeItem(k)); }catch{}   // left over from the checklist (removed)
 const FIRST = (() => { let f = lsGet("vct-first", 0); if(!f){ f = Date.now(); lsSet("vct-first", f); } return f; })();
 let seen = lsGet("vct-seen", {}), shownNew = new Set();
 const isNew = it => !!it.updatedAt && it.updatedAt > FIRST && it.updatedAt > (seen[it.id] || 0);
@@ -105,7 +102,9 @@ function zoomStep(d){
   const nx = zoom.idx + d; if(nx<0 || nx>=len) return; zoom.idx = nx; render();
 }
 
-/* V.C. Tips venues (own list, collection vct_venues): code (acronym), name, city, address, map (Google Maps link or "lat,lng"), notes */
+/* V.C. Tips venues (own list, collection vct_venues): code (acronym), name, city, address, map (Google Maps link or "lat,lng"),
+   table, power, parking, contact (optional details), notes, imgs (photos, stored like those of steps and tips) */
+const VDETAILS = [["table","Θέση τραπεζιού"],["power","Πρίζα / ρεύμα"],["parking","Στάθμευση"],["contact","Υπεύθυνος γηπέδου"]];
 const COORD = /^\s*-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+\s*$/;
 function mapsUrl(v){
   if(/^https?:\/\//i.test(v.map||"")) return v.map;
@@ -212,14 +211,11 @@ function viewSetup(){
   const empty = denied.steps && !n ? deniedBox() : isAdmin
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
-  const done = steps.filter(s=>checked.has(s.id)).length;
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
-  ${n && !edit?`<div class="g-prog" role="status"><div><b>Λίστα ελέγχου σήμερα: ${done} / ${n} έτοιμα</b><span>Πάτα «Έγινε» σε κάθε βήμα. Μηδενίζεται μόνη της την επόμενη μέρα.</span></div>
-    <div class="bar"><i style="width:${n?Math.round(done/n*100):0}%"></i></div>${done?`<button class="g-btn ghost" data-act="chkreset">Από την αρχή</button>`:""}</div>`:""}
-  <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step${checked.has(s.id)?" done":""}" id="it-${s.id}">
+  <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
     <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}${newBadge(s)}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}
-    ${edit?"":`<button class="g-done" data-act="chk" data-id="${s.id}" aria-pressed="${checked.has(s.id)}">${checked.has(s.id)?"✓ Έγινε":"Έγινε"}</button>`}${tools("steps",i,n)}</div></article>`).join("") : empty}
+${tools("steps",i,n)}</div></article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}</div>`;
 }
 
@@ -288,7 +284,8 @@ function viewVenues(){
       ${shown.map(v=>`<option value="${v.id}" ${v.id===venueId?"selected":""}>${v.code?esc(v.code)+" — ":""}${esc(v.name)}</option>`).join("")}</select></div>
   </div>`:""}
   ${cur?`<article class="g-court"><div class="hd">${cur.code && norm(cur.code)!==norm(cur.name)?`<span class="g-code">${esc(cur.code)}</span>`:""}<div><h2>${esc(cur.name)}${newBadge(cur)}</h2>${cur.city?`<p>${esc(cur.city)}</p>`:""}</div></div>
-    <div class="bd">${cur.address||cur.notes?`<dl class="g-kv">${cur.address?`<dt>Διεύθυνση</dt><dd>${esc(cur.address)}</dd>`:""}${cur.notes?`<dt>Σημειώσεις</dt><dd class="g-rich">${fmt(cur.notes)}</dd>`:""}</dl>`:""}
+    <div class="bd">${cur.address||cur.notes||VDETAILS.some(([k])=>cur[k])?`<dl class="g-kv">${cur.address?`<dt>Διεύθυνση</dt><dd>${esc(cur.address)}</dd>`:""}${VDETAILS.filter(([k])=>cur[k]).map(([k,l])=>`<dt>${l}</dt><dd>${fmtInline(esc(cur[k]))}</dd>`).join("")}${cur.notes?`<dt>Σημειώσεις</dt><dd class="g-rich">${fmt(cur.notes)}</dd>`:""}</dl>`:""}
+    ${thumbs(cur,"venues",ci)}
     <div class="g-row"><a class="g-btn" href="${esc(mapsUrl(cur))}" target="_blank" rel="noopener">${ICON.venues} Οδηγίες Google Maps</a>${cur.address?`<button class="g-btn ghost" data-act="copy">Αντιγραφή διεύθυνσης</button>`:""}</div>
     ${tools("venues",ci,venues.length)}</div></article>`
    : venues.length ? emptyBox("Επίλεξε γήπεδο από τη λίστα","") : denied.venues ? deniedBox() : emptyAll}
@@ -299,7 +296,9 @@ function viewVenues(){
 const FORMS = {
   steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφίες (έως 4)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
   tips:[["cat","Κατηγορία","cat"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 4)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
-  venues:[["code","Αρκτικόλεξο","input"],["name","Όνομα γηπέδου","input"],["city","Πόλη / περιοχή","input"],["address","Διεύθυνση (για το Google Maps)","input"],["map","Σύνδεσμος Google Maps ή συντεταγμένες (προαιρετικό)","input"],["notes","Σημειώσεις (πρόσβαση, πάρκινγκ, υπεύθυνος γηπέδου)","textarea"]],
+  venues:[["code","Αρκτικόλεξο","input"],["name","Όνομα γηπέδου","input"],["city","Πόλη / περιοχή","input"],["address","Διεύθυνση (για το Google Maps)","input"],["map","Σύνδεσμος Google Maps ή συντεταγμένες (προαιρετικό)","input"],
+    ["table","Θέση τραπεζιού VC (προαιρετικό)","input"],["power","Πρίζα / ρεύμα (προαιρετικό)","input"],["parking","Στάθμευση (προαιρετικό)","input"],["contact","Υπεύθυνος γηπέδου / τηλέφωνο (προαιρετικό)","input"],
+    ["notes","Άλλες σημειώσεις (πρόσβαση, καλώδια κ.λπ.)","textarea"],["img","Φωτογραφίες γηπέδου (έως 4: τραπέζι, πρίζα, διαδρομή καλωδίων…)","image"]],
 };
 const NAMES = {steps:"βήμα", tips:"tip", venues:"γήπεδο"};
 const LIST = k => k==="steps"?steps:k==="tips"?tips:venues;
@@ -383,9 +382,6 @@ async function onClick(ev){
       render(); const t=$("it-"+id); if(t){ t.scrollIntoView({block:"start"}); window.scrollBy(0,-80); t.classList.add("g-flash"); setTimeout(()=>t.classList.remove("g-flash"),1800); }
       break; }
     case "gonext": { const v = nextMatch && venueFor(nextMatch); if(!v) break; markSeen(); tab="venues"; history.replaceState(null,"",location.pathname+"#venues"); pickVenue(v.id); window.scrollTo(0,0); break; }
-    case "chk": { const id=el.dataset.id; if(CHK()!==chkKey){ chkKey=CHK(); checked=new Set(); } checked.has(id)?checked.delete(id):checked.add(id); lsSet(CHK(), [...checked]);
-      if(steps.length && steps.every(s=>checked.has(s.id))) toast("Όλα τα βήματα έτοιμα. Καλό αγώνα!"); render(); break; }
-    case "chkreset": checked=new Set(); lsSet(CHK(), []); render(); window.scrollTo({top:0,behavior:"smooth"}); break;
     case "toggle": edit=!edit; render(); break;
     case "cat": tipCat=el.dataset.c; render(); break;
     case "fmt": applyFmt(el.dataset.f, el.dataset.t); break;
@@ -396,6 +392,8 @@ async function onClick(ev){
       tips.forEach((x,n)=>parts.push(`\n[Tip ${n+1}${x.cat?" · "+x.cat:""}] ${x.title||""}\n${x.text||""}`));
       const vn = venues.filter(v=>v.notes);
       if(vn.length){ parts.push("\n\nΣΗΜΕΙΩΣΕΙΣ ΓΗΠΕΔΩΝ"); vn.forEach(v=>parts.push(`\n[${v.code||v.name}] ${v.notes}`)); }
+      const vd = venues.filter(v=>VDETAILS.some(([k])=>v[k]));
+      if(vd.length){ parts.push("\n\nΣΤΟΙΧΕΙΑ ΓΗΠΕΔΩΝ"); vd.forEach(v=>parts.push(`\n[${v.code||v.name}] `+VDETAILS.filter(([k])=>v[k]).map(([k,l])=>`${l}: ${v[k]}`).join(" · "))); }
       const txt = parts.join("\n");
       try{ await navigator.clipboard.writeText(txt); toast("Αντιγράφηκαν. Επικόλλησέ τα όπου θέλεις."); }
       catch{ sheet={kind:"export", txt}; render(); }
@@ -423,7 +421,7 @@ async function onClick(ev){
       else { const it=LIST(k)[i]; try{ const b=db.batch(); b.delete(db.doc(`${COL(k)}/${it.id}`)); (it.imgs||[]).forEach(id=>b.delete(db.doc(`${COL(k)}/${id}`))); await b.commit(); toast("Διαγράφηκε"); }catch{ fail(); } }
       break;
     case "new": sheet={kind:k, id:null, item: k==="tips"&&tipCat!=="Όλα" ? {cat:tipCat} : {}, photos:[]}; render(); break;
-    case "edit": { const it=LIST(k)[i]; sheet={kind:k, id:it.id, item:{...it}, photos: k==="venues"?[]:photos(it,k)}; render(); break; }
+    case "edit": { const it=LIST(k)[i]; sheet={kind:k, id:it.id, item:{...it}, photos: photos(it,k)}; render(); break; }
     case "close": case "closebg": sheet=null; render(); break;
     case "phdel": readSheet(); sheet.photos.splice(+el.dataset.n,1); render(); break;
     case "phmove": { readSheet(); const n=+el.dataset.n, ph=sheet.photos; [ph[n-1],ph[n]]=[ph[n],ph[n-1]]; render(); break; }
@@ -437,9 +435,9 @@ async function onClick(ev){
         const col=db.collection(COL(kind)), ref = sheet.id ? col.doc(sheet.id) : col.doc();
         if(!sheet.id && kind!=="venues") data.order=LIST(kind).length;
         const b=db.batch();
-        if(kind!=="venues"){
+        {
           /* every photo becomes its own document; photos removed in the form are deleted */
-          delete data.img; data.imgs=[]; data.diagram=false;
+          delete data.img; data.imgs=[]; if(kind!=="venues") data.diagram=false;
           for(const p of sheet.photos){
             if(p.diagram){ data.diagram=true; continue; }
             if(p.id){ data.imgs.push(p.id); continue; }
@@ -449,6 +447,7 @@ async function onClick(ev){
         }
         b.set(ref, data);
         await b.commit();
+        seen[ref.id]=data.updatedAt; lsSet("vct-seen", seen);   // your own change is not «Νέο» for you
         if(kind==="venues" && !sheet.id){ venueId=ref.id; try{ localStorage.setItem("vct-venue", venueId); }catch{} }
         sheet=null; toast("Αποθηκεύτηκε"); render();
       }catch(e){ el.disabled=false; el.textContent="Αποθήκευση"; toast(/size|large|exceed/i.test(e?.message||"")?"Η φωτογραφία είναι πολύ μεγάλη. Δοκίμασε μικρότερη.":"Η αποθήκευση απέτυχε. Δοκίμασε ξανά."); }
@@ -532,7 +531,7 @@ async function onClick(ev){
   const onDenied = name => err => { console.warn(name, err && err.code); denied[name]=true; ready[name]=true; render(); };
   db.collection("vct_steps").onSnapshot(s=>{ steps=split("steps",s); ready.steps=true; render(); }, onDenied("steps"));
   db.collection("vct_tips").onSnapshot(s=>{ tips=split("tips",s); ready.tips=true; render(); }, onDenied("tips"));
-  db.collection("vct_venues").limit(2000).onSnapshot(s=>{ venues=s.docs.map(d=>({id:d.id,...d.data()})); ready.venues=true; if(wantVenue) openWanted(); else render(); }, onDenied("venues"));
+  db.collection("vct_venues").limit(3000).onSnapshot(s=>{ venues=split("venues",s); ready.venues=true; if(wantVenue) openWanted(); else render(); }, onDenied("venues"));
   /* the user's own Check Mate assignments (read-only): the next one is shown on Στήσιμο */
   if(me && me.id) db.collection(`mine/${me.id}/items`).limit(500).onSnapshot(s=>{
     const t = today();
