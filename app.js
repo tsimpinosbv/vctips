@@ -212,7 +212,7 @@ function viewSetup(){
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
-  <div class="g-list">${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
+  <div class="g-list">${edit&&n?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
     <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}${newBadge(s)}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}
 ${tools("steps",i,n)}</div></article>`).join("") : empty}
@@ -263,7 +263,7 @@ function viewTips(){
   return `<h1 class="g-h1">Tips</h1><p class="g-lede">Μικρές λεπτομέρειες που γλιτώνουν προβλήματα στον αγώνα.</p>
   ${edit?viewCats():""}
   ${tips.length?`<div class="g-chips" role="toolbar" aria-label="Κατηγορίες">${cats.map(c=>`<button class="g-chip" data-act="cat" data-c="${esc(c)}" aria-pressed="${c===tipCat}">${esc(c)}</button>`).join("")}</div>`:""}
-  <div class="g-list">${list.length ? list.map(([t,i],pos)=>`<article class="g-tip" id="it-${t.id}">${t.cat||isNew(t)?`<span>${t.cat?`<span class="g-tag">${esc(t.cat)}</span>`:""}${newBadge(t)}</span>`:""}<h3>${esc(t.title)}</h3>${isBig(t,"tips",i) ? bigPhoto(t,"tips",i) : ""}<div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i,isBig(t,"tips",i)?1:0)}${tools("tips",i,tips.length,nb(pos,-1),nb(pos,1))}</article>`).join("") : empty}
+  <div class="g-list">${edit&&tips.length?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}${list.length ? list.map(([t,i],pos)=>`<article class="g-tip" id="it-${t.id}">${t.cat||isNew(t)?`<span>${t.cat?`<span class="g-tag">${esc(t.cat)}</span>`:""}${newBadge(t)}</span>`:""}<h3>${esc(t.title)}</h3>${isBig(t,"tips",i) ? bigPhoto(t,"tips",i) : ""}<div class="g-rich">${fmt(t.text)}</div>${thumbs(t,"tips",i,isBig(t,"tips",i)?1:0)}${tools("tips",i,tips.length,nb(pos,-1),nb(pos,1))}</article>`).join("") : empty}
   ${edit?`<button class="g-add" data-act="new" data-k="tips">+ Νέο tip</button>`:""}</div>`;
 }
 
@@ -278,6 +278,7 @@ function viewVenues(){
     ? emptyBox("Δεν υπάρχουν γήπεδα ακόμα", "Πάτα ✎ Επεξεργασία για να τα προσθέσεις ένα-ένα ή όλα μαζί.", edit?`<button class="g-btn" data-act="copycm">Αντιγραφή λίστας από το Check Mate (μία φορά)</button>`:"")
     : emptyBox("Δεν υπάρχουν γήπεδα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Γήπεδα</h1><p class="g-lede">Διάλεξε γήπεδο για να δεις το αρκτικόλεξό του και να ανοίξεις οδηγίες στο Google Maps.</p>
+  ${edit&&venues.length?`<div class="g-list" style="margin-bottom:14px"><button class="g-add" data-act="new" data-k="venues">+ Νέο γήπεδο</button></div>`:""}
   ${venues.length?`<div class="g-picker">
     <div class="g-field"><label for="gq">Αναζήτηση</label><input class="g-in" id="gq" type="search" placeholder="Αρκτικόλεξο, όνομα ή πόλη" value="${esc(filter)}" autocomplete="off"></div>
     <div class="g-field"><label for="gsel">Γήπεδο (${shown.length})</label><select class="g-in" id="gsel"><option value="">— Επίλεξε γήπεδο —</option>
@@ -449,7 +450,8 @@ async function onClick(ev){
         await b.commit();
         seen[ref.id]=data.updatedAt; lsSet("vct-seen", seen);   // your own change is not «Νέο» for you
         if(kind==="venues" && !sheet.id){ venueId=ref.id; try{ localStorage.setItem("vct-venue", venueId); }catch{} }
-        sheet=null; toast("Αποθηκεύτηκε"); render();
+        const wasNew=!sheet.id; sheet=null; toast("Αποθηκεύτηκε"); render();
+        if(wasNew && kind!=="venues") setTimeout(()=>{ const t=$("it-"+ref.id); if(t){ t.scrollIntoView({block:"center",behavior:"smooth"}); t.classList.add("g-flash"); setTimeout(()=>t.classList.remove("g-flash"),1800); } }, 400);
       }catch(e){ el.disabled=false; el.textContent="Αποθήκευση"; toast(/size|large|exceed/i.test(e?.message||"")?"Η φωτογραφία είναι πολύ μεγάλη. Δοκίμασε μικρότερη.":"Η αποθήκευση απέτυχε. Δοκίμασε ξανά."); }
       break; }
     case "import": sheet={kind:"import"}; render(); break;
