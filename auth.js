@@ -67,7 +67,7 @@
     let d = document.getElementById("cm-dock");
     if(!d){
       d = document.createElement("div"); d.id = "cm-dock";
-      d.innerHTML = `<button type="button" class="install" id="cm-install" hidden>📲 Εγκατάσταση</button><button type="button" id="cm-signout" hidden>Αποσύνδεση</button>`;
+      d.innerHTML = `<button type="button" class="install" id="cm-install" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-.2em"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg> Εγκατάσταση</button><button type="button" id="cm-signout" hidden>Αποσύνδεση</button>`;
       document.body.appendChild(d);
       const tip = document.createElement("div"); tip.id = "cm-ios"; tip.hidden = true; tip.setAttribute("role","dialog");
       tip.innerHTML = `<button type="button" aria-label="Κλείσιμο" id="cm-ios-x">×</button><b>Εγκατάσταση στο iPhone</b><br>1. Πάτησε το κουμπί <b>Κοινοποίηση</b> (το τετράγωνο με το βέλος ↑) στο Safari.<br>2. Επίλεξε <b>Προσθήκη στην οικία</b>.<br>3. Πάτησε <b>Προσθήκη</b>.`;
@@ -138,7 +138,7 @@
       </form>
       <p class="hint" style="margin-top:14px">Δεν έχεις λογαριασμό; Κάνε εγγραφή στο Check Mate και μπες εδώ με τα ίδια στοιχεία.</p>`;
     }
-    rootEl().innerHTML = `<div id="cm-auth">${head}${body}<a class="help" href="help/">📖 Οδηγίες χρήσης</a></div>`;
+    rootEl().innerHTML = `<div id="cm-auth">${head}${body}<a class="help" href="help/"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v15c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"/><path d="M12 6v15"/></svg> Οδηγίες χρήσης</a></div>`;
     const box = document.getElementById("cm-auth");
     box.querySelectorAll("[data-view]").forEach(x => x.onclick = () => showAuth(x.dataset.view, null, (document.getElementById("cm-email")||{}).value||email));
     const g = document.getElementById("cm-google"); if(g) g.onclick = google;
