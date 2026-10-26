@@ -52,7 +52,7 @@ const lsGet = (k, d) => { try{ const v = localStorage.getItem(k); return v ? JSO
 const lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
 /* «Νέο»: an item changed (updatedAt) after this device last saw it; content from before the first visit is not flagged */
 try{ Object.keys(localStorage).filter(k=>k.startsWith("vct-check-")).forEach(k=>localStorage.removeItem(k)); }catch{}   // left over from the checklist (removed)
-const FIRST = (() => { let f = lsGet("vct-first", 0); if(!f){ f = Date.now(); lsSet("vct-first", f); } return f; })();
+const FIRST = Date.parse("2026-10-26T00:00:00+02:00");   // «Νέο» started on this day: anything added or changed after it counts, also for users who open the app later
 let seen = lsGet("vct-seen", {}), shownNew = new Set();
 const isNew = it => !!it.updatedAt && it.updatedAt > FIRST && it.updatedAt > (seen[it.id] || 0);
 function markSeen(){ if(!shownNew.size) return; const now = Date.now(); shownNew.forEach(id => { seen[id] = now; }); shownNew.clear(); lsSet("vct-seen", seen); }
