@@ -2,7 +2,7 @@
    - Files from this site: network first (always the latest version), cached copy when offline.
    - Firebase libraries (www.gstatic.com/firebasejs, pinned version) and Google Fonts: cached copy first,
      so the app can start with no signal. Firestore keeps its own offline copy of the content (auth.js). */
-const CACHE = "vctips-v14";
+const CACHE = "vctips-v15";
 const SHELL = ["./", "./index.html", "./app.js", "./auth.js", "./firebase-config.js", "./manifest.webmanifest",
                "./icons/icon-192.png", "./icons/icon-512.png", "./img/videocheck-layout.jpg"];
 const LIBS = ["app", "auth", "firestore"].map(n => `https://www.gstatic.com/firebasejs/10.12.2/firebase-${n}-compat.js`);

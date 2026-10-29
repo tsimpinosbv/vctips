@@ -235,10 +235,10 @@ function guideStep(d){
   guide = nx; guideSaved = nx; try{ localStorage.setItem("vct-guide", String(nx)); }catch{} render();
 }
 
-/* keep the screen on while the setup steps are open (Wake Lock API; silently ignored where unsupported) */
+/* keep the screen on only while «Βήμα-βήμα» is open (Wake Lock API; silently ignored where unsupported) */
 let wakeLock = null, wakeOn = false;
 async function syncWake(){
-  const want = document.visibilityState==="visible" && (guide!==null || (tab==="setup" && !norm(q) && !sheet));
+  const want = document.visibilityState==="visible" && guide!==null;
   if(!("wakeLock" in navigator)) return;
   try{
     if(want && !wakeLock){ wakeLock = await navigator.wakeLock.request("screen"); wakeOn = true;
@@ -255,7 +255,7 @@ function viewSetup(){
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
   ${n && !edit ? `<div class="g-gstart"><button class="g-btn" data-act="guideopen" data-n="0">${ICON.setup} Βήμα-βήμα</button>${guideSaved>0 && guideSaved<n ? `<button class="g-btn ghost" data-act="guideopen" data-n="${guideSaved}">Συνέχεια από το βήμα ${guideSaved+1}</button>` : ""}</div>
-  ${wakeOn ? `<p class="g-wakeline">${SUN} Η οθόνη μένει αναμμένη όσο είσαι στο Στήσιμο</p>` : ""}` : ""}
+` : ""}
   <div class="g-list">${edit&&n?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
     <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}${newBadge(s)}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}
