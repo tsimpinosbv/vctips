@@ -46,6 +46,9 @@ function parseHash(){
 }
 let tab = parseHash().t || "setup", wantVenue = parseHash().v;
 let tipCat = "Όλα", venueId = null, filter = "", sheet = null, zoom = null;
+/* guide: one step per screen (index of the step shown, or null); the last step seen is remembered on this phone */
+let guide = null, guideShown = null, guideSaved = 0;
+try{ guideSaved = +localStorage.getItem("vct-guide") || 0; }catch{}
 let q = "", searchOpen = false;            // search across steps, tips and venues
 let nextMatch = null;                      // the user's next Check Mate assignment (mine/<uid>/items)
 const lsGet = (k, d) => { try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } };
@@ -207,6 +210,43 @@ function viewSearch(){
 
 function emptyBox(title, sub, extra=""){ return `<div class="g-empty"><strong>${title}</strong><div>${sub}</div>${extra}</div>`; }
 
+const SUN = '<svg class="g-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+function viewGuide(){
+  if(guide===null || !steps.length) return "";
+  const n = steps.length, i = Math.min(Math.max(guide,0), n-1), s = steps[i], ph = photos(s,"steps");
+  return `<div class="g-guide" role="dialog" aria-modal="true" aria-label="Βήμα ${i+1} από ${n}">
+    <div class="g-gtop"><div class="g-gbar"><span class="g-gnum">ΒΗΜΑ ${i+1} / ${n}</span>${wakeOn?`<span class="g-gwake">${SUN} Η οθόνη μένει αναμμένη</span>`:""}
+      <button class="g-gx" data-act="guideclose" aria-label="Κλείσιμο">✕</button></div>
+      <div class="g-gprog" aria-hidden="true"><i style="width:${Math.round((i+1)/n*100)}%"></i></div></div>
+    <div class="g-gbody" id="gguidebody">
+      ${ph.length ? bigPhoto(s,"steps",i) : ""}
+      <h2 class="g-gtitle">${esc(s.title)}</h2>
+      <div class="g-rich">${fmt(s.text)}</div>
+      ${thumbs(s,"steps",i,1)}
+    </div>
+    <div class="g-gnav">
+      <button class="g-btn ghost" data-act="guidego" data-d="-1" ${i===0?"disabled":""}>‹ Προηγούμενο</button>
+      ${i<n-1 ? `<button class="g-btn" data-act="guidego" data-d="1">Επόμενο ›</button>` : `<button class="g-btn" data-act="guideclose">✓ Τέλος</button>`}
+    </div></div>`;
+}
+function guideOpen(i){ guide = Math.min(Math.max(i,0), steps.length-1); render(); }
+function guideStep(d){
+  if(guide===null) return; const nx = guide + d; if(nx<0 || nx>=steps.length) return;
+  guide = nx; guideSaved = nx; try{ localStorage.setItem("vct-guide", String(nx)); }catch{} render();
+}
+
+/* keep the screen on while the setup steps are open (Wake Lock API; silently ignored where unsupported) */
+let wakeLock = null, wakeOn = false;
+async function syncWake(){
+  const want = document.visibilityState==="visible" && (guide!==null || (tab==="setup" && !norm(q) && !sheet));
+  if(!("wakeLock" in navigator)) return;
+  try{
+    if(want && !wakeLock){ wakeLock = await navigator.wakeLock.request("screen"); wakeOn = true;
+      wakeLock.addEventListener("release", () => { wakeLock = null; if(wakeOn){ wakeOn = false; render(); } }); render(); }
+    else if(!want && wakeLock){ wakeOn = false; const w = wakeLock; wakeLock = null; await w.release(); }
+  }catch{ wakeLock = null; wakeOn = false; }
+}
+
 function viewSetup(){
   if(!ready.steps) return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Φόρτωση…</p>`;
   const n = steps.length;
@@ -214,6 +254,8 @@ function viewSetup(){
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
+  ${n && !edit ? `<div class="g-gstart"><button class="g-btn" data-act="guideopen" data-n="0">${ICON.setup} Βήμα-βήμα</button>${guideSaved>0 && guideSaved<n ? `<button class="g-btn ghost" data-act="guideopen" data-n="${guideSaved}">Συνέχεια από το βήμα ${guideSaved+1}</button>` : ""}</div>
+  ${wakeOn ? `<p class="g-wakeline">${SUN} Η οθόνη μένει αναμμένη όσο είσαι στο Στήσιμο</p>` : ""}` : ""}
   <div class="g-list">${edit&&n?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
     <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}${newBadge(s)}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}
@@ -349,7 +391,10 @@ function render(){
       ${edit?`<div class="g-export"><button class="g-btn ghost" data-act="exporttext">Αντιγραφή όλων των κειμένων</button><p class="g-lede" style="margin:0;font-size:13px">Βήματα, tips και σημειώσεις γηπέδων σε απλό κείμενο, π.χ. για έλεγχο διατύπωσης.</p></div>`:""}
       <p class="g-who"><a href="help/${isAdmin?"#diaxeiristes":""}"><svg class="g-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6c-2-1.5-5-2-8-2v15c3 0 6 .5 8 2 2-1.5 5-2 8-2V4c-3 0-6 .5-8 2z"/><path d="M12 6v15"/></svg> Οδηγίες χρήσης</a>${me&&me.email?`<br>Συνδεδεμένος: ${esc(me.email)}${isAdmin?" · διαχειριστής":""}`:""}</p></main>
     <nav class="g-tabs" aria-label="Ενότητες"><div class="in">${TABS.map(([k,l])=>`<a href="#${k}" data-act="tab" data-t="${k}" ${tab===k&&!norm(q)?'aria-current="page"':""}>${ICON[k]}${l}${tab!==k&&LIST(k==="setup"?"steps":k).some(isNew)?'<i class="g-dot" aria-label="νέο"></i>':""}</a>`).join("")}</div></nav>
-    ${viewSheet()}${viewZoom()}`;
+    ${viewSheet()}${viewGuide()}${viewZoom()}`;
+  if(guide!==null && guideShown!==guide){ const gb=$("gguidebody"); if(gb) gb.scrollTop=0; guideShown=guide; } else if(guide===null) guideShown=null;
+  document.body.classList.toggle("g-noscroll", guide!==null);
+  syncWake();
   window.scrollTo(0, sy);
   if(fid){ const el=$(fid); if(el){ el.focus(); try{ el.setSelectionRange(gq,gq); }catch{} } }
 }
@@ -412,6 +457,10 @@ async function onClick(ev){
       else { const from=tipCats()[+el.dataset.n]; try{ await renameCat(from, ""); toast("Τα tips της έμειναν χωρίς κατηγορία"); }catch{ fail(); } }
       break;
     case "zoom": zoom={k, i, idx:+el.dataset.n||0}; render(); break;
+    case "guideopen": { const n=+el.dataset.n||0; guideSaved=n; try{ localStorage.setItem("vct-guide", String(n)); }catch{} guideOpen(n); break; }
+    case "guidego": guideStep(+el.dataset.d); break;
+    case "guideclose": { const i=guide; guide=null; if(i===steps.length-1 && el.textContent.includes("Τέλος")){ guideSaved=0; try{ localStorage.removeItem("vct-guide"); }catch{} } render();
+      const a=steps[i] && $("it-"+steps[i].id); if(a) a.scrollIntoView({block:"start"}); break; }
     case "zoomnav": zoomStep(+el.dataset.d); break;
     case "zoomfull": el.closest(".g-zoom-in").classList.toggle("full"); break;
     case "unzoom": if(ev.target===el || ev.target.classList.contains("g-zoom-in") || el.classList.contains("g-zoom-x")){ zoom=null; render(); } break;
@@ -524,15 +573,15 @@ async function onClick(ev){
     else if(ev.target.id==="gsearch"){ q=ev.target.value; render(); }
     else if(/^gf-(text|notes)$/.test(ev.target.id)){ const pv=$("gp-"+ev.target.id.slice(3)); if(pv) pv.innerHTML=fmt(ev.target.value); } });
   addEventListener("online", render); addEventListener("offline", render);
-  addEventListener("keydown", e => { if(!zoom) return; if(e.key==="Escape"){ zoom=null; render(); } else if(e.key==="ArrowRight") zoomStep(1); else if(e.key==="ArrowLeft") zoomStep(-1); });
+  addEventListener("keydown", e => { if(!zoom && guide!==null){ if(e.key==="Escape"){ guide=null; render(); } else if(e.key==="ArrowRight") guideStep(1); else if(e.key==="ArrowLeft") guideStep(-1); return; } if(!zoom) return; if(e.key==="Escape"){ zoom=null; render(); } else if(e.key==="ArrowRight") zoomStep(1); else if(e.key==="ArrowLeft") zoomStep(-1); });
   /* swipe left/right in the full-screen viewer (not while viewing at actual size) */
   let sx=null, sy0=null;
-  g.addEventListener("touchstart", e => { if(zoom && !e.target.closest(".g-zoom-in.full")){ sx=e.touches[0].clientX; sy0=e.touches[0].clientY; } }, {passive:true});
+  g.addEventListener("touchstart", e => { if((zoom && !e.target.closest(".g-zoom-in.full")) || (!zoom && guide!==null)){ sx=e.touches[0].clientX; sy0=e.touches[0].clientY; } }, {passive:true});
   g.addEventListener("touchend", e => { if(sx===null) return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy0; sx=null;
-    if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5) zoomStep(dx<0?1:-1); }, {passive:true});
+    if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5){ if(zoom) zoomStep(dx<0?1:-1); else if(guide!==null) guideStep(dx<0?1:-1); } }, {passive:true});
   addEventListener("hashchange", () => { const h=parseHash(); if(h.v){ wantVenue=h.v; tab="venues"; openWanted(); } if(h.t && h.t!==tab){ markSeen(); tab=h.t; render(); } });
   addEventListener("pagehide", markSeen);
-  document.addEventListener("visibilitychange", () => { if(document.visibilityState==="hidden") markSeen(); });
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState==="hidden") markSeen(); syncWake(); });
   render();
   /* photo documents ({imgOf}) live next to the items; split them out */
   const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(d.id==="_cats"){ CATORDER=x.order||[]; return; } if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });

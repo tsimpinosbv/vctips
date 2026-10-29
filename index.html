@@ -2,7 +2,7 @@
 <html lang="el">
 <head>
 <meta charset="utf-8">
-<meta name="app-build" content="896560142731"><!-- change this value on every update of index.html / app.js / auth.js: the app then shows «Νέα έκδοση» -->
+<meta name="app-build" content="77fba68dfab8"><!-- change this value on every update of index.html / app.js / auth.js: the app then shows «Νέα έκδοση» -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>V.C. Tips</title>
 <meta name="theme-color" content="#14213a">
@@ -218,6 +218,29 @@ textarea.g-in{min-height:120px;resize:vertical}
 
 .g-sbtn{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px}
 .g-sline{padding-bottom:12px}.g-sline .g-in{width:100%;background:var(--surface);color:var(--ink)}
+.g-gstart{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 14px}
+.g-gstart .g-btn{flex:1 1 160px}
+.g-gstart .g-btn svg{width:20px;height:20px}
+.g-wakeline{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;margin:-6px 0 12px}
+.g-wakeline .g-ic,.g-gwake .g-ic{width:16px;height:16px}
+body.g-noscroll{overflow:hidden}
+.g-guide{position:fixed;inset:0;z-index:70;background:var(--bg);display:flex;flex-direction:column}
+.g-gtop{background:var(--head);color:var(--head-ink);padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+.g-gbar{display:flex;align-items:center;gap:10px;max-width:680px;margin:0 auto;min-height:40px}
+.g-gnum{font-family:var(--f-mono);font-size:15px;color:var(--accent)}
+.g-gwake{display:flex;align-items:center;gap:5px;font-size:12px;opacity:.75;flex:1;min-width:0}
+.g-gx{margin-left:auto;width:40px;height:40px;border-radius:999px;border:1.5px solid currentColor;background:transparent;color:inherit;font-size:16px}
+.g-gprog{height:4px;background:rgba(255,255,255,.18);margin:8px calc(-1 * max(16px,env(safe-area-inset-left,0px))) 0}
+.g-gprog i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.g-gbody{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:16px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));width:100%;max-width:680px;margin:0 auto;display:block}
+.g-gbody>*+*{margin-top:12px}
+.g-gbody .g-media{border-radius:12px;overflow:hidden}
+.g-gtitle{font-family:var(--f-display);font-weight:800;font-size:26px;line-height:1.1;margin:4px 0 0;text-wrap:balance}
+.g-gbody .g-rich{font-size:16.5px}
+.g-gnav{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));border-top:1px solid var(--line);background:var(--surface)}
+.g-gnav .g-btn{padding:15px 12px;font-size:16px}
+.g-gnav .g-btn:disabled{opacity:.35}
+@media (prefers-reduced-motion:reduce){.g-gprog i{transition:none}}
 .g-next{background:var(--head);color:var(--head-ink);border-radius:14px;padding:14px 16px;margin:18px 0 0;display:grid;gap:6px}
 .g-next .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700}
 .g-next .t{font-size:17px}.g-next .v{opacity:.85}
