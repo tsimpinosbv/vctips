@@ -59,17 +59,17 @@ function markSeen(){ if(!shownNew.size) return; const now = Date.now(); shownNew
 const newBadge = it => { if(!isNew(it)) return ""; shownNew.add(it.id); return `<span class="g-new">Νέο</span>`; };   // zoom: {k, i, idx} — which item's photos are full screen, and which one
 try{ venueId = localStorage.getItem("vct-venue"); }catch{}
 
-/* Photos: up to MAXPH per step or tip. Each photo is its own document in the same collection ({imgOf: parentId, data}),
+/* Photos: up to MAXPH per step or tip, each with an optional caption (capts[] follows imgs[]; diagramCap for the layout). Each photo is its own document in the same collection ({imgOf: parentId, data}),
    so a step never reaches Firestore's 1 MB document limit; the parent keeps their order in `imgs`.
    Older items may still have a single `img` field, and `diagram: true` shows the official VideoCheck layout. */
-const MAXPH = 4;
+const MAXPH = 12;
 const LAYOUT = "img/videocheck-layout.jpg";
 const LAYOUT_ALT = "Διάταξη VideoCheck: κάμερες γραμμών 1–8, C, D, κάμερες block Y, T, R, L, K, J, κάμερες φιλέ A, B, E, W, κάμερες U, I, κάμερα σκηνής S, Server 1, Server 2 και Server Main με UPS και πρίζα σούκο";
 function photos(it, k){
   const out = [];
-  if(it.diagram) out.push({src:LAYOUT, alt:LAYOUT_ALT, diagram:true});
-  if(it.img) out.push({src:it.img, alt:it.title||"", legacy:true});
-  (it.imgs||[]).forEach(id => { const d = IMGS[k] && IMGS[k][id]; if(d) out.push({src:d, alt:it.title||"", id}); });
+  if(it.diagram) out.push({src:LAYOUT, alt:LAYOUT_ALT, diagram:true, cap:it.diagramCap||""});
+  if(it.img) out.push({src:it.img, alt:it.title||"", legacy:true, cap:""});
+  (it.imgs||[]).forEach((id,j) => { const d = IMGS[k] && IMGS[k][id]; const cap = (it.capts||[])[j]||""; if(d) out.push({src:d, alt:cap||it.title||"", id, cap}); });
   return out;
 }
 /* "big": first picture shown large (chosen per step/tip in the form; step 1 is large unless switched off) */
@@ -78,12 +78,13 @@ const isBig = (it, k, i) => !!photos(it,k).length && (it.big ?? (k==="steps" && 
 function bigPhoto(it, k, i){
   const ph = photos(it, k)[0]; if(!ph) return "";
   return `<div class="g-media${ph.diagram?" layout":""}"><button class="g-layout" data-act="zoom" data-k="${k}" data-i="${i}" data-n="0" aria-label="Μεγέθυνση φωτογραφίας">
-    <img src="${ph.src}" ${ph.diagram?'width="1386" height="916"':""} alt="${esc(ph.alt)}" loading="lazy"><span>Πάτα για μεγέθυνση</span></button></div>`;
+    <img src="${ph.src}" ${ph.diagram?'width="1386" height="916"':""} alt="${esc(ph.alt)}" loading="lazy"><span>Πάτα για μεγέθυνση</span></button></div>${ph.cap?`<p class="g-cap">${esc(ph.cap)}</p>`:""}`;
 }
 /* everything else: small thumbnails in a row */
 function thumbs(it, k, i, from=0){
   const ph = photos(it, k); if(ph.length<=from) return "";
-  return `<div class="g-thumbs">${ph.slice(from).map((p,n)=>`<button class="g-thumb" data-act="zoom" data-k="${k}" data-i="${i}" data-n="${n+from}" aria-label="Μεγέθυνση φωτογραφίας ${n+from+1} από ${ph.length}"><img src="${p.src}" alt="" loading="lazy"></button>`).join("")}</div>`;
+  const rest = ph.slice(from), caps = rest.some(p=>p.cap);
+  return `<div class="g-thumbs${caps?" caps":""}">${rest.map((p,n)=>`<button class="g-thumb" data-act="zoom" data-k="${k}" data-i="${i}" data-n="${n+from}" aria-label="Μεγέθυνση φωτογραφίας ${n+from+1} από ${ph.length}${p.cap?": "+esc(p.cap):""}"><img src="${p.src}" alt="" loading="lazy">${caps?`<span class="tcap">${esc(p.cap||"")}</span>`:""}</button>`).join("")}</div>`;
 }
 function viewZoom(){
   if(!zoom) return "";
@@ -94,6 +95,7 @@ function viewZoom(){
     <button class="g-zoom-x" data-act="unzoom">Κλείσιμο ✕</button>
     ${many?`<span class="g-zoom-n">${n+1} / ${ph.length}</span>`:""}
     <div class="g-zoom-in" id="gzoomin"><img src="${p.src}" alt="${esc(p.alt)}" data-act="zoomfull"></div>
+    ${p.cap?`<p class="g-zoom-cap">${esc(p.cap)}</p>`:""}
     ${many?`<button class="g-zoom-nav prev" data-act="zoomnav" data-d="-1" aria-label="Προηγούμενη" ${n===0?"disabled":""}>‹</button><button class="g-zoom-nav next" data-act="zoomnav" data-d="1" aria-label="Επόμενη" ${n===ph.length-1?"disabled":""}>›</button>`:""}
     <p class="g-zoom-hint">Πάτα την εικόνα για πλήρες μέγεθος${many?" · σύρε για την επόμενη":""}</p></div>`;
 }
@@ -192,7 +194,7 @@ function viewNext(){
 }
 /* search: one box for steps, tips and venues */
 function viewSearch(){
-  const f = norm(q), hit = x => norm(Object.values(x).filter(v=>typeof v==="string" && !/^data:/.test(v)).join(" ")).includes(f);
+  const f = norm(q), hit = x => norm([...Object.values(x).filter(v=>typeof v==="string" && !/^data:/.test(v)), ...(x.capts||[]), x.diagramCap||""].join(" ")).includes(f);
   const snip = t => { const s = String(t||"").replace(/[*=!{}#]/g,"").replace(/\s+/g," "); const n = norm(s).indexOf(f); return esc(n<0 ? s.slice(0,110) : (n>40?"…":"")+s.slice(Math.max(0,n-40), n+90)); };
   const res = [
     ...steps.map((x,n)=>({x,n})).filter(({x})=>hit(x)).map(({x,n})=>({k:"steps", id:x.id, tag:`Βήμα ${n+1}`, title:x.title, sub:snip(x.text)})),
@@ -295,11 +297,11 @@ function viewVenues(){
 }
 
 const FORMS = {
-  steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφίες (έως 4)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
-  tips:[["cat","Κατηγορία","cat"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 4)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
+  steps:[["title","Τίτλος βήματος","input"],["text","Οδηγίες","textarea"],["img","Φωτογραφίες (έως 12, με λεζάντα)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
+  tips:[["cat","Κατηγορία","cat"],["title","Τίτλος","input"],["text","Κείμενο","textarea"],["img","Φωτογραφίες (προαιρετικές, έως 12, με λεζάντα)","image"],["big","Η πρώτη φωτογραφία ανοιχτή σε μεγάλο μέγεθος","check"]],
   venues:[["code","Αρκτικόλεξο","input"],["name","Όνομα γηπέδου","input"],["city","Πόλη / περιοχή","input"],["address","Διεύθυνση (για το Google Maps)","input"],["map","Σύνδεσμος Google Maps ή συντεταγμένες (προαιρετικό)","input"],
     ["table","Θέση τραπεζιού VC (προαιρετικό)","input"],["power","Πρίζα / ρεύμα (προαιρετικό)","input"],["parking","Στάθμευση (προαιρετικό)","input"],["contact","Υπεύθυνος γηπέδου / τηλέφωνο (προαιρετικό)","input"],
-    ["notes","Άλλες σημειώσεις (πρόσβαση, καλώδια κ.λπ.)","textarea"],["img","Φωτογραφίες γηπέδου (έως 4: τραπέζι, πρίζα, διαδρομή καλωδίων…)","image"]],
+    ["notes","Άλλες σημειώσεις (πρόσβαση, καλώδια κ.λπ.)","textarea"],["img","Φωτογραφίες γηπέδου (έως 12: τραπέζι, πρίζα, διαδρομή καλωδίων…)","image"]],
 };
 const NAMES = {steps:"βήμα", tips:"tip", venues:"γήπεδο"};
 const LIST = k => k==="steps"?steps:k==="tips"?tips:venues;
@@ -323,10 +325,11 @@ function viewSheet(){
       : t==="cat" ? catField(it[k])
       : t==="image"
       ? `<div class="g-field"><label for="gf-${k}">${l}</label>
-          ${sheet.photos.length?`<div class="g-phedit">${sheet.photos.map((p,n)=>`<div class="ph"><img src="${p.src}" alt="">
-            <div class="phb">${n>0?`<button class="g-tb" type="button" data-act="phmove" data-n="${n}" data-d="-1" aria-label="Μετακίνηση αριστερά">‹</button>`:""}<button class="g-tb del" type="button" data-act="phdel" data-n="${n}" aria-label="Αφαίρεση φωτογραφίας">✕</button></div></div>`).join("")}</div>`:""}
+          ${sheet.photos.length?`<div class="g-phedit">${sheet.photos.map((p,n)=>`<div class="phw"><div class="ph"><img src="${p.src}" alt=""><span class="phn">${n+1}</span>
+            <div class="phb">${n>0?`<button class="g-tb" type="button" data-act="phmove" data-n="${n}" data-d="-1" aria-label="Μετακίνηση αριστερά">‹</button>`:""}<button class="g-tb del" type="button" data-act="phdel" data-n="${n}" aria-label="Αφαίρεση φωτογραφίας">✕</button></div></div>
+            <input class="g-in phcap" id="gcap-${n}" value="${esc(p.cap||"")}" placeholder="Λεζάντα (προαιρετική)" aria-label="Λεζάντα φωτογραφίας ${n+1}" maxlength="140"></div>`).join("")}</div>`:""}
           ${sheet.photos.filter(p=>!p.diagram).length<MAXPH?`<label class="g-addph"><input type="file" id="gf-${k}" accept="image/*" multiple>${sheet.photos.filter(p=>!p.diagram).length?`+ Προσθήκη κι άλλης φωτογραφίας (${sheet.photos.filter(p=>!p.diagram).length}/${MAXPH})`:"+ Προσθήκη φωτογραφιών"}</label>
-            <p class="g-lede" style="margin:0;font-size:13px">Αν το κινητό σου δεν αφήνει να διαλέξεις πολλές μαζί, πρόσθεσέ τες μία-μία.</p>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
+            <p class="g-lede" style="margin:0;font-size:13px">Μπορείς να διαλέξεις πολλές μαζί. Κάτω από κάθε φωτογραφία γράψε, αν θέλεις, μια λεζάντα (π.χ. «Κάμερα 1 – zoom 35%»).</p>`:`<p class="g-lede" style="margin:0">Έφτασες τις ${MAXPH} φωτογραφίες. Αφαίρεσε μία για να βάλεις άλλη.</p>`}</div>`
       : `<div class="g-field"><label for="gf-${k}">${l}</label>${t==="textarea"?`${fmtBar(k)}<textarea class="g-in" id="gf-${k}">${esc(it[k])}</textarea>
           <details class="g-fmthelp"><summary>Προεπισκόπηση και οδηγίες μορφοποίησης</summary><div class="g-rich g-prev" id="gp-${k}">${fmt(it[k])}</div>
           <p>**έντονα** · *πλάγια* · ==επισήμανση== · !!κόκκινα!! · {πορτοκαλί:Y, T, R} = χρωματιστή ετικέτα (μαύρο, πορτοκαλί, κίτρινο, μπλε, κόκκινο, πράσινο) · γραμμή που αρχίζει με «- » = κουκκίδα, «1. » = αρίθμηση, «## » = υπότιτλος. Οι σύνδεσμοι (https://…) γίνονται αυτόματα κλικ.</p></details>`:`<input class="g-in" id="gf-${k}" value="${esc(it[k])}" ${k==="cat"?'list="gcats"':""}>`}</div>`).join("")}
@@ -356,7 +359,7 @@ function resizeImage(file){ return new Promise((res,rej)=>{ const r=new FileRead
   c.getContext("2d").drawImage(im,0,0,c.width,c.height); let q=.8, out=c.toDataURL("image/jpeg",q); while(out.length>850000 && q>.35){ q-=.1; out=c.toDataURL("image/jpeg",q); } res(out); };
   im.onerror=rej; im.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); }); }
 
-function readSheet(){ if(!sheet||!FORMS[sheet.kind]) return; for(const [k,,t] of FORMS[sheet.kind]){ if(t==="image") continue;
+function readSheet(){ if(!sheet||!FORMS[sheet.kind]) return; (sheet.photos||[]).forEach((p,n)=>{ const c=$("gcap-"+n); if(c) p.cap=c.value.trim(); }); for(const [k,,t] of FORMS[sheet.kind]){ if(t==="image") continue;
   if(t==="check"){ const c=$("gf-"+k); if(c) sheet.item[k]=c.checked; continue; }
   if(t==="cat"){ const sel=$("gf-cat"), nw=$("gf-catnew"); if(sel) sheet.item.cat = sel.value==="__new" ? (nw?nw.value.trim():"") : sel.value; continue; }
   const f=$("gf-"+k); if(f) sheet.item[k]=f.value.trim(); } }
@@ -437,15 +440,19 @@ async function onClick(ev){
         if(!sheet.id && kind!=="venues") data.order=LIST(kind).length;
         const b=db.batch();
         {
-          /* every photo becomes its own document; photos removed in the form are deleted */
-          delete data.img; data.imgs=[]; if(kind!=="venues") data.diagram=false;
+          /* every photo becomes its own document, written one at a time (many large photos would not fit in one request);
+             then the item with the photo order and captions; photos removed in the form are deleted */
+          delete data.img; data.imgs=[]; data.capts=[]; data.diagramCap=""; if(kind!=="venues") data.diagram=false;
+          const fresh = sheet.photos.filter(p=>!p.diagram && !p.id).length; let done=0;
           for(const p of sheet.photos){
-            if(p.diagram){ data.diagram=true; continue; }
-            if(p.id){ data.imgs.push(p.id); continue; }
-            const pr=col.doc(); b.set(pr, {imgOf:ref.id, data:p.src}); data.imgs.push(pr.id);
+            if(p.diagram){ data.diagram=true; data.diagramCap=p.cap||""; continue; }
+            if(p.id){ data.imgs.push(p.id); data.capts.push(p.cap||""); continue; }
+            if(fresh>1) el.textContent=`Ανέβασμα φωτογραφιών ${++done}/${fresh}…`;
+            const pr=col.doc(); await pr.set({imgOf:ref.id, data:p.src}); data.imgs.push(pr.id); data.capts.push(p.cap||"");
           }
           (it.imgs||[]).filter(id=>!data.imgs.includes(id)).forEach(id=>b.delete(col.doc(id)));
         }
+        el.textContent="Αποθήκευση…";
         b.set(ref, data);
         await b.commit();
         seen[ref.id]=data.updatedAt; lsSet("vct-seen", seen);   // your own change is not «Νέο» for you
