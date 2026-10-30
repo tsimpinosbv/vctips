@@ -254,7 +254,7 @@ function viewSetup(){
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
-  ${n && !edit ? `<div class="g-gstart"><button class="g-btn" data-act="guideopen" data-n="0">${ICON.setup} Βήμα-βήμα</button>${guideSaved>0 && guideSaved<n ? `<button class="g-btn ghost" data-act="guideopen" data-n="${guideSaved}"><span>Συνέχεια από το βήμα ${guideSaved+1}</span></button><button class="g-btn ghost g-greset" data-act="guidereset" aria-label="Μηδενισμός: ξεκίνα από το βήμα 1" title="Μηδενισμός">↺ Μηδενισμός</button>` : ""}</div>
+  ${n && !edit ? `<div class="g-gstart"><button class="g-btn" data-act="guideopen" data-n="0">${ICON.setup} Βήμα-βήμα</button>${guideSaved>0 && guideSaved<n ? `<button class="g-btn ghost" data-act="guideopen" data-n="${guideSaved}"><span>Συνέχεια από το βήμα ${guideSaved+1}</span></button><button class="g-btn ghost g-greset" data-act="guidereset" aria-label="Μηδενισμός: ξεκίνα από το βήμα 1" title="Μηδενισμός"><span aria-hidden="true">↺</span></button>` : ""}</div>
 ` : ""}
   <div class="g-list">${edit&&n?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
