@@ -254,7 +254,7 @@ function viewSetup(){
     ? emptyBox("Δεν υπάρχουν βήματα ακόμα", "Πρόσθεσε το πρώτο βήμα ή φόρτωσε ένα αρχικό πρόχειρο που αλλάζεις μετά.", `<button class="g-btn" data-act="seed" data-k="steps">Φόρτωση αρχικού προχείρου</button>`)
     : emptyBox("Δεν υπάρχουν βήματα ακόμα", "Θα προστεθούν σύντομα.");
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
-  ${n && !edit ? `<div class="g-gstart"><button class="g-btn" data-act="guideopen" data-n="0">${ICON.setup} Βήμα-βήμα</button>${guideSaved>0 && guideSaved<n ? `<button class="g-btn ghost" data-act="guideopen" data-n="${guideSaved}">Συνέχεια από το βήμα ${guideSaved+1}</button>` : ""}</div>
+  ${n && !edit ? `<div class="g-gstart"><button class="g-btn" data-act="guideopen" data-n="0">${ICON.setup} Βήμα-βήμα</button>${guideSaved>0 && guideSaved<n ? `<button class="g-btn ghost" data-act="guideopen" data-n="${guideSaved}"><span>Συνέχεια από το βήμα ${guideSaved+1}</span></button><button class="g-btn ghost g-greset" data-act="guidereset" aria-label="Μηδενισμός: ξεκίνα από το βήμα 1" title="Μηδενισμός">↺ Μηδενισμός</button>` : ""}</div>
 ` : ""}
   <div class="g-list">${edit&&n?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
@@ -457,6 +457,7 @@ async function onClick(ev){
       else { const from=tipCats()[+el.dataset.n]; try{ await renameCat(from, ""); toast("Τα tips της έμειναν χωρίς κατηγορία"); }catch{ fail(); } }
       break;
     case "zoom": zoom={k, i, idx:+el.dataset.n||0}; render(); break;
+    case "guidereset": guideSaved=0; try{ localStorage.removeItem("vct-guide"); }catch{} toast("Η πρόοδος μηδενίστηκε. Το Βήμα-βήμα ξεκινά από το βήμα 1."); render(); break;
     case "guideopen": { const n=+el.dataset.n||0; guideSaved=n; try{ localStorage.setItem("vct-guide", String(n)); }catch{} guideOpen(n); break; }
     case "guidego": guideStep(+el.dataset.d); break;
     case "guideclose": { const i=guide; guide=null; if(i===steps.length-1 && el.textContent.includes("Τέλος")){ guideSaved=0; try{ localStorage.removeItem("vct-guide"); }catch{} } render();
