@@ -2,7 +2,7 @@
 <html lang="el">
 <head>
 <meta charset="utf-8">
-<meta name="app-build" content="aa07ba695844"><!-- change this value on every update of index.html / app.js / auth.js: the app then shows «Νέα έκδοση» -->
+<meta name="app-build" content="c48dd9062642"><!-- change this value on every update of index.html / app.js / auth.js: the app then shows «Νέα έκδοση» -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script>try{var t=localStorage.getItem("cm-theme");if(t)document.documentElement.setAttribute("data-theme",t);if(localStorage.getItem("cm-compact"))document.documentElement.classList.add("cm-compact")}catch(e){}</script>
 <title>V.C. Tips</title>
@@ -220,9 +220,12 @@ textarea.g-in{min-height:120px;resize:vertical}
 .g-sbtn{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px}
 .g-sline{padding-bottom:12px}.g-sline .g-in{width:100%;background:var(--surface);color:var(--ink)}
 .g-gstart{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 14px}
-.g-bglink{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--card,var(--surface,#fff));color:var(--ink);text-decoration:none}
-.g-bglink>svg:first-child{color:var(--accent);flex:none}.g-bglink>svg:last-child{color:var(--muted);flex:none;margin-left:auto}
-.g-bglink span{display:flex;flex-direction:column;min-width:0}.g-bglink small{color:var(--muted);font-size:12.5px}
+.g-bglink{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:13px 16px;border-radius:14px;border:0;background:var(--blue);color:#fff;text-decoration:none;box-shadow:0 6px 16px rgba(42,127,212,.28)}
+.g-bglink:active{transform:scale(.99)}
+.g-bglink>svg{flex:none;color:#fff}.g-bglink>svg:last-child{margin-left:auto;opacity:.9}
+.g-bglink span{display:flex;flex-direction:column;min-width:0}.g-bglink b{font-size:16px}.g-bglink small{color:rgba(255,255,255,.88);font-size:12.5px}
+:root[data-theme="dark"] .g-bglink{color:#0e1524}:root[data-theme="dark"] .g-bglink>svg,:root[data-theme="dark"] .g-bglink small{color:#0e1524}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .g-bglink,:root:not([data-theme="light"]) .g-bglink>svg,:root:not([data-theme="light"]) .g-bglink small{color:#0e1524}}
 .g-bgedit{margin:0 0 16px;padding:12px 14px;border-radius:14px;border:1px dashed var(--line)}
 .g-gstart .g-btn{flex:1 1 160px}
 .g-gstart .g-greset{flex:0 0 auto;min-width:48px;padding:12px 14px;font-size:20px;line-height:1;color:var(--muted)}
