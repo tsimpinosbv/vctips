@@ -37,6 +37,8 @@ const ICON = {
 const TABS = [["setup","Στήσιμο"],["tips","Tips"],["venues","Γήπεδα"]];
 
 let db=null, me=null, isAdmin=false, edit=false;
+/* «Backgrounds»: a link to a shared folder (e.g. Google Drive) set by the admins, stored in vct_tips/_bg {url, label} */
+let BG = {};
 let steps=[], tips=[], venues=[], CATORDER=[], IMGS={steps:{}, tips:{}, venues:{}}, denied={}, ready={steps:false,tips:false,venues:false};
 /* #setup · #tips · #venues · #venues?v=<venue name> (link from a Check Mate assignment opens that venue) */
 function parseHash(){
@@ -247,6 +249,15 @@ async function syncWake(){
   }catch{ wakeLock = null; wakeOn = false; }
 }
 
+function viewBg(){
+  const url = String(BG.url||"").trim(), label = String(BG.label||"").trim() || "Backgrounds";
+  if(edit) return `<div class="g-bgedit"><b>Κουμπί «${esc(label)}»</b><p class="g-lede" style="margin:4px 0 10px;font-size:13px">Σύνδεσμος σε κοινόχρηστο φάκελο (π.χ. Google Drive → Κοινοποίηση → «Οποιοσδήποτε έχει τον σύνδεσμο»). Οι χρήστες βλέπουν ένα κουμπί που τον ανοίγει. Κενός σύνδεσμος = δεν εμφανίζεται κουμπί.</p>
+    <div class="g-field"><label for="gbg-label">Κείμενο κουμπιού</label><input class="g-in" id="gbg-label" value="${esc(BG.label||"")}" placeholder="Backgrounds"></div>
+    <div class="g-field"><label for="gbg-url">Σύνδεσμος φακέλου</label><input class="g-in" id="gbg-url" type="url" value="${esc(url)}" placeholder="https://drive.google.com/drive/folders/…"></div>
+    <div class="g-row"><button class="g-btn" data-act="savebg">Αποθήκευση</button></div></div>`;
+  if(!/^https:\/\//i.test(url)) return "";
+  return `<a class="g-bglink" href="${esc(url)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg><span><b>${esc(label)}</b><small>Κοινόχρηστος φάκελος · κατέβασε τα backgrounds</small></span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></svg></a>`;
+}
 function viewSetup(){
   if(!ready.steps) return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Φόρτωση…</p>`;
   const n = steps.length;
@@ -256,6 +267,7 @@ function viewSetup(){
   return `<h1 class="g-h1">Στήσιμο video check</h1><p class="g-lede">Τα βήματα με τη σειρά, από τη στιγμή της ανάθεσης μέχρι την αποχώρηση από το γήπεδο.</p>
   ${n && !edit ? `<div class="g-gstart"><button class="g-btn" data-act="guideopen" data-n="0">${ICON.setup} Βήμα-βήμα</button>${guideSaved>0 && guideSaved<n ? `<button class="g-btn ghost" data-act="guideopen" data-n="${guideSaved}"><span>Συνέχεια από το βήμα ${guideSaved+1}</span></button><button class="g-btn ghost g-greset" data-act="guidereset" aria-label="Μηδενισμός: ξεκίνα από το βήμα 1" title="Μηδενισμός"><span aria-hidden="true">↺</span></button>` : ""}</div>
 ` : ""}
+  ${viewBg()}
   <div class="g-list">${edit&&n?`<button class="g-add" data-act="new" data-k="steps">+ Νέο βήμα</button>`:""}${n ? steps.map((s,i)=>`<article class="g-step" id="it-${s.id}">
     ${isBig(s,"steps",i) ? bigPhoto(s,"steps",i) : ""}
     <div class="g-body"><span class="g-num">ΒΗΜΑ ${i+1} / ${n}${newBadge(s)}</span><h2>${esc(s.title)}</h2><div class="g-rich">${fmt(s.text)}</div>${thumbs(s,"steps",i,isBig(s,"steps",i)?1:0)}
@@ -432,6 +444,12 @@ async function onClick(ev){
       break; }
     case "gonext": { const v = nextMatch && venueFor(nextMatch); if(!v) break; markSeen(); tab="venues"; history.replaceState(null,"",location.pathname+"#venues"); pickVenue(v.id); window.scrollTo(0,0); break; }
     case "toggle": edit=!edit; render(); break;
+    case "savebg": {
+      const url=($("gbg-url")?.value||"").trim(), label=($("gbg-label")?.value||"").trim();
+      if(url && !/^https:\/\/\S+$/i.test(url)){ toast("Ο σύνδεσμος πρέπει να ξεκινά με https://"); break; }
+      try{ await db.doc("vct_tips/_bg").set({url, label, at:Date.now()}); BG={url,label}; toast(url?"Το κουμπί αποθηκεύτηκε":"Το κουμπί αφαιρέθηκε"); render(); }
+      catch{ toast("Δεν αποθηκεύτηκε. Δοκίμασε ξανά."); }
+      break; }
     case "cat": tipCat=el.dataset.c; render(); break;
     case "fmt": applyFmt(el.dataset.f, el.dataset.t); break;
     case "exporttext": {
@@ -585,7 +603,7 @@ async function onClick(ev){
   document.addEventListener("visibilitychange", () => { if(document.visibilityState==="hidden") markSeen(); syncWake(); });
   render();
   /* photo documents ({imgOf}) live next to the items; split them out */
-  const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(d.id==="_cats"){ CATORDER=x.order||[]; return; } if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });
+  const split = (k, s) => { const items=[], im={}; s.docs.forEach(d=>{ const x=d.data(); if(d.id==="_cats"){ CATORDER=x.order||[]; return; } if(d.id==="_bg"){ BG=x||{}; return; } if(x.imgOf) im[d.id]=x.data; else items.push({id:d.id,...x}); });
     IMGS[k]=im; return items.sort((a,b)=>(a.order??1e9)-(b.order??1e9)); };
   const onDenied = name => err => { console.warn(name, err && err.code); denied[name]=true; ready[name]=true; render(); };
   db.collection("vct_steps").onSnapshot(s=>{ steps=split("steps",s); ready.steps=true; render(); }, onDenied("steps"));
