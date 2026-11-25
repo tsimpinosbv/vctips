@@ -2,10 +2,12 @@
    - Files from this site: network first (always the latest version), cached copy when offline.
    - Firebase libraries (www.gstatic.com/firebasejs, pinned version) and Google Fonts: cached copy first,
      so the app can start with no signal. Firestore keeps its own offline copy of the content (auth.js). */
-const CACHE = "vctips-v17";
+const CACHE = "vctips-v18";
 const SHELL = ["./", "./index.html", "./app.js", "./auth.js", "./firebase-config.js", "./manifest.webmanifest",
                "./icons/icon-192.png", "./icons/icon-512.png", "./img/videocheck-layout.jpg"];
 const LIBS = ["app", "auth", "firestore"].map(n => `https://www.gstatic.com/firebasejs/10.12.2/firebase-${n}-compat.js`);
+/* only this app's own copies (Check Mate and the Suite keep their own) */
+const mine = (req, opt) => caches.open(CACHE).then(c => c.match(req, opt));
 const isLib = u => u.hostname === "www.gstatic.com" && u.pathname.startsWith("/firebasejs/");
 const isFont = u => u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com";
 
@@ -15,8 +17,9 @@ self.addEventListener("install", e => {
     await Promise.all(LIBS.map(u => fetch(u, {mode: "no-cors"}).then(r => c.put(u, r)).catch(() => {})));
   }).then(() => self.skipWaiting()));
 });
+/* on update: removes only its own old copies (Check Mate and the Suite keep theirs) */
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith("vctips-") && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", e => {
   const req = e.request;
@@ -24,7 +27,7 @@ self.addEventListener("fetch", e => {
   const url = new URL(req.url);
   if(isLib(url) || isFont(url)){
     /* cached copy first; fetch and store it the first time */
-    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
+    e.respondWith(mine(req).then(hit => hit || fetch(req).then(res => {
       const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return res;
     })));
     return;
@@ -34,6 +37,6 @@ self.addEventListener("fetch", e => {
     fetch(req).then(res => {
       if(res.ok){ const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return res;
-    }).catch(() => caches.match(req, {ignoreSearch: true}).then(r => r || caches.match("./index.html")))
+    }).catch(() => mine(req, {ignoreSearch: true}).then(r => r || mine("./index.html")))
   );
 });
